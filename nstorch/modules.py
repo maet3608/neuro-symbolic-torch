@@ -6,10 +6,6 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import nstorch.parser as nsp
-
-from collections import OrderedDict
-from nutsflow import Window
 
 
 class NSModule(nn.Module):
@@ -33,30 +29,10 @@ class NSModule(nn.Module):
         """
         Compute forward pass of network.
 
-        A functional program is described by an edge list of modules that
-        must define a directed acyclic graph (DAG) of the execution flow, e.g.
-        'i0|A A|B i1|B B|O' describes the DAG below
-
-               i0 - A
-                     \
-                      B - O
-                     /
-               i1 --
-
-        Edges can be chained, e.g. the following definitions are valid and
-        equivalent:
-        'i0|A A|B i1|B B|O'
-        'i0|A|B|O i1|B'
-        'i0|A|B i1|B|O'
-
-        Order is preserved and modules are executed from left-to-right and
-        top-to-bottom (for a DAG as displayed in the orientation above)
-
-        :param str fp: Description of a functional program.
-        :param inputs x: Network inputs (batches)
+        :param str fp: Functional program.
+        :param inputs inputs: Network inputs (batches)
         :return: Output of network
         """
-        # fp, inputs = x[-1], x[:-1]
 
         # print('NSModule, fp', fp)
         # print('NSModule, inputs', inputs)
@@ -65,4 +41,4 @@ class NSModule(nn.Module):
         for m in self._modules.values():
             m.context = inputs
         return eval(fp, None, self.locals)
-        # return nsp.forward(fp, *inputs, modules)
+
