@@ -63,6 +63,6 @@ class NSModule(nn.Module):
         inputs = inputs[0] if len(inputs) == 1 else inputs
         self.locals['x'] = inputs
         for m in self._modules.values():
-            m.context = input
+            m.context = inputs
         return eval(fp, None, self.locals)
         # return nsp.forward(fp, *inputs, modules)
