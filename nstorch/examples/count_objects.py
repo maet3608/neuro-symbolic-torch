@@ -16,12 +16,13 @@ from nutsml.network import PytorchNetwork
 
 def gen_samples(n=10, s=6):
     for i in range(n):
-        img = np.zeros((1, s, s))
-        img[0, 0, 0] = 1
-        img[0, 0, 2] = 1
+        img = np.zeros((1, s, s), dtype='float32')
+        img[0, 0, 0] = 1.0
+        img[0, 0, 2] = 1.0
         mask = img.copy()
-        yield (img, 2, 'count(filter(x))', )
-        yield (img, mask, 'filter(x)',)
+        num = np.float32(2)
+        yield (img, num, 'count(filter(x))')
+        yield ([img], mask, 'filter(x)')
 
 
 def mse_loss(input, target):
@@ -51,7 +52,7 @@ class WeightSumModule(nn.Module):
         self.c = nn.Parameter(torch.Tensor([1.0]))
 
     def forward(self, x):
-        return (x * self.c).sum(((1,2,3)))
+        return (x * self.c).sum(((1, 2, 3)))
 
 
 class FilterModule(nn.Module):
@@ -74,7 +75,7 @@ def Train(batches, network):
         model.optimizer.zero_grad()
         inputs = [torch.as_tensor(b, device=device).float() for b in inputs]
         outputs = [torch.as_tensor(b, device=device).float() for b in outputs]
-        y_pred = network.model(fp, inputs)
+        y_pred = network.model(inputs, fp)
         y_true = outputs[0]
         loss = model.losses(y_pred, y_true)
         loss.backward()
@@ -87,10 +88,10 @@ def Predict(batches, network):
     model = network.model
     device = model.device
     with torch.no_grad():
-        for inputs, outputs, fp in batches:
+        for inputs, fp in batches:
             model.optimizer.zero_grad()
             inputs = [torch.as_tensor(b, device=device).float() for b in inputs]
-            y_pred = network.model.forward(fp, inputs)
+            y_pred = network.model.forward(inputs, fp)
             yield y_pred
 
 
@@ -103,20 +104,23 @@ if __name__ == '__main__':
     model.losses = mse_loss
     network = PytorchNetwork(model, 'weights.pt')
 
-    build_batch = BuildBatch(0,1,2, 2)
     # add_channel = nf.MapCol(1, lambda img: np.expand_dims(img, 0))
 
     samples = sorted(gen_samples(), key=lambda s: s[2].count('('))
 
     print('training...')
-    for epoch in range(100):
+    for epoch in range(10):
         print('epoch', epoch)
-        losses = (samples >> build_batch >>
-                  Train(network) >> nf.Collect())
+        losses = (samples >> BuildBatch(2) >>
+                  # Train(network) >>
+                  network.train() >>
+                  nf.Collect())
         loss = np.mean(losses)
         print('loss', loss)
         if loss < 1e-6: break
 
     print('predicting...')
-    (samples >> build_batch >> Predict(network) >> nf.Flatten() >>
-      nf.Tail(3) >> nf.Print() >> nf.Consume())
+    (samples >> BuildBatch(2, outcol=None) >>
+     Predict(network) >> nf.Flatten() >>
+     # network.predict() >>
+     nf.Tail(3) >> nf.Print() >> nf.Consume())
