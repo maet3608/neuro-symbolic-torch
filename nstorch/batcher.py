@@ -11,29 +11,53 @@ from nutsml.datautil import batchstr
 
 
 def to_list(x):
+    """
+    Wraps x in a list if it is not already a list.
+
+    :param object x: Any object.
+    :return: x wrapped in list
+    :rtype: list
+    """
     return x if isinstance(x, list) else [x]
 
 
-
-
-
 def to_array(cols):
+    """Convert data columns in batch to numpy arrays"""
     return [np.stack(c) for c in zip(*map(to_list, cols))]
 
 
 @nf.nut_processor
-def BuildBatch(samples, batchsize, incol=0, outcol=1, fpcol=2, verbose=True):
+def BuildBatch(samples, batchsize, incol=0, outcol=1, fpcol=2, verbose=False):
+    """
+    Build batches for neuro-symbolic networks.
+
+    :param iterable samples: Iterable over samples
+    :param int batchsize: Maximum batchsize. Actual batchsize might be smaller.
+    :param int incol: Column in sample that contain network inputs.
+    :param int|None outcol: Column in sample that contain network outputs.
+           Set to None to generate batches for prediction
+    :param int fpcol: Column in sample that contain functional program.
+    :param bool verbose: If True, print batch format
+    :return: iterator over batches of format [[inputs], [outputs], fp]
+    :rtype: list
+    """
     for group in samples >> nf.GroupBySorted(fpcol, nokey=True):
         for batch in group >> nf.Chunk(batchsize):
             bc = list(zip(*batch))  # batch columns
             fp = bc[fpcol][0]  # functional program
             assert isinstance(fp, str), 'No fp found in fpcol: ' + str(fp)
             inputs = to_array(bc[incol])
-            outputs = to_array(bc[outcol])
-            if verbose:
-                fmtstr = "batch in:{} out:{}, fp:{}"
-                console(fmtstr.format(batchstr(inputs), batchstr(outputs), fp))
-            yield inputs, outputs, fp
+            if outcol is not None:
+                outputs = to_array(bc[outcol])
+                if verbose:
+                    fmtstr = "batch in:{} out:{}, fp:{}"
+                    console(fmtstr.format(batchstr(inputs), batchstr(outputs), fp))
+                yield inputs, outputs, fp
+            else:
+                if verbose:
+                    fmtstr = "batch in:{} fp:{}"
+                    console(fmtstr.format(batchstr(inputs), fp))
+                yield inputs, fp
 
 
 if __name__ == '__main__':
