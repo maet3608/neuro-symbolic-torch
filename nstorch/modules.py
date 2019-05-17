@@ -11,21 +11,24 @@ import torch.optim as optim
 class NSModule(nn.Module):
     """A neuro-symbolic module"""
 
-    def __init__(self, modules):
+    def __init__(self, modules, device):
         """
         Constructor.
 
         :param list[nn.Module] modules: Iterable over modules
            Note that modules must have 'name' attribute and names
            must be unique.
+        :param str device: Device, eg. 'gpu', 'cuda' or 'cuda:0'
         """
         super(NSModule, self).__init__()
         for m in modules:
             assert hasattr(m, 'name'), 'Module has no name: ' + str(m)
             self.add_module(m.name, m)
         self.locals = {m.name: m for m in modules}
+        self.device = device
+        self.to(device)
 
-    def forward(self, fp, inputs):
+    def forward(self, inputs, fp):
         """
         Compute forward pass of network.
 

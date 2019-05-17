@@ -17,10 +17,10 @@ from nutsml.network import PytorchNetwork
 def gen_samples(n=10, s=6):
     for i in range(n):
         img = np.zeros((1, s, s), dtype='float32')
-        img[0, 0, 0] = 1.0
-        img[0, 0, 2] = 1.0
-        mask = img.copy()
+        img[0, 0, 0] = 1
+        img[0, 0, 2] = 1
         num = np.float32(2)
+        mask = img.copy()
         yield (img, num, 'count(filter(x))')
         yield ([img], mask, 'filter(x)')
 
@@ -97,9 +97,7 @@ def Predict(batches, network):
 
 if __name__ == '__main__':
     modules = [CountModule(), FilterModule(), WeightSumModule()]
-    model = NSModule(modules)
-    model.device = 'cuda'
-    # model.optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
+    model = NSModule(modules, device='cuda')
     model.optimizer = optim.Adam(model.parameters())
     model.losses = mse_loss
     network = PytorchNetwork(model, 'weights.pt')
@@ -121,6 +119,6 @@ if __name__ == '__main__':
 
     print('predicting...')
     (samples >> BuildBatch(2, outcol=None) >>
-     Predict(network) >> nf.Flatten() >>
-     # network.predict() >>
+     #Predict(network) >> nf.Flatten() >>
+     network.predict() >>
      nf.Tail(3) >> nf.Print() >> nf.Consume())
