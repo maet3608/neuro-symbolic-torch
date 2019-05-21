@@ -23,12 +23,18 @@ class NSModule(nn.Module):
         super(NSModule, self).__init__()
         for m in modules:
             assert hasattr(m, 'name'), 'Module has no name: ' + str(m)
+            assert hasattr(m, 'loss'), 'Module has no loss fn: ' + str(m)
             self.add_module(m.name, m)
         self.locals = {m.name: m for m in modules}
         self.device = device
         self.to(device)
 
-    def forward(self, inputs, fp):
+    def loss(self, fp):
+        """Return loss function for given functional program"""
+        modname = fp.split('(')[0]  # last fn call is output module
+        return self._modules[modname].loss
+
+    def forward(self, fp, inputs):
         """
         Compute forward pass of network.
 
@@ -36,11 +42,8 @@ class NSModule(nn.Module):
         :param inputs inputs: Network inputs (batches)
         :return: Output of network
         """
-
-        # print('NSModule, fp', fp)
-        # print('NSModule, inputs', inputs)
         inputs = inputs[0] if len(inputs) == 1 else inputs
-        self.locals['x'] = inputs
+        self.locals['_'] = inputs
         for m in self._modules.values():
             m.context = inputs
         return eval(fp, None, self.locals)
