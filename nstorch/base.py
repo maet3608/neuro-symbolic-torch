@@ -1,7 +1,8 @@
 """
-.. module:: batcher
-   :synopsis: Batch generator for neuro-symbolic computing.
+.. module:: base
+   :synopsis: Basic functions/nuts for neuro-symbolic computing.
 """
+import torch
 
 import numpy as np
 import nutsflow as nf
@@ -26,8 +27,12 @@ def to_array(cols):
     return [np.stack(c) for c in zip(*map(to_list, cols))]
 
 
+def to_tensor(elements, device):
+    return [torch.as_tensor(e, device=device).float() for e in elements]
+
+
 @nf.nut_processor
-def BuildBatch(samples, batchsize, incol=0, outcol=1, fpcol=2, verbose=False):
+def BuildBatch(samples, batchsize, fpcol=0, incol=1, outcol=2, verbose=False):
     """
     Build batches for neuro-symbolic networks.
 
@@ -46,18 +51,58 @@ def BuildBatch(samples, batchsize, incol=0, outcol=1, fpcol=2, verbose=False):
             bc = list(zip(*batch))  # batch columns
             fp = bc[fpcol][0]  # functional program
             assert isinstance(fp, str), 'No fp found in fpcol: ' + str(fp)
+            assert all(f == fp for f in bc[fpcol]), 'Expect same fp in batch'
             inputs = to_array(bc[incol])
             if outcol is not None:
                 outputs = to_array(bc[outcol])
                 if verbose:
                     fmtstr = "batch in:{} out:{}, fp:{}"
                     console(fmtstr.format(batchstr(inputs), batchstr(outputs), fp))
-                yield inputs, outputs, fp
+                yield fp, inputs, outputs
             else:
                 if verbose:
                     fmtstr = "batch in:{} fp:{}"
                     console(fmtstr.format(batchstr(inputs), fp))
-                yield inputs, fp
+                yield fp, inputs
+
+
+@nf.nut_processor
+def Train(batches, model):
+    device = model.device
+    for fp, inputs, outputs in batches:
+        model.optimizer.zero_grad()
+        inputs = to_tensor(inputs, device)
+        outputs = to_tensor(outputs, device)
+        y_pred = model(fp, inputs)
+        y_true = outputs[0] if len(outputs) == 1 else outputs
+        loss = model.loss(fp)(y_pred, y_true)
+        loss.backward()
+        model.optimizer.step()
+        yield loss.item()
+
+
+@nf.nut_processor
+def Validate(batches, model):
+    device = model.device
+    with torch.no_grad():
+        for fp, inputs, outputs in batches:
+            inputs = to_tensor(inputs, device)
+            outputs = to_tensor(outputs, device)
+            y_pred = model(fp, inputs)
+            y_true = outputs[0] if len(outputs) == 1 else outputs
+            loss = model.loss(fp)(y_pred, y_true)
+            yield loss.item()
+
+
+@nf.nut_processor
+def Predict(batches, model):
+    device = model.device
+    with torch.no_grad():
+        for fp, inputs in batches:
+            inputs = to_tensor(inputs, device)
+            preds = model(fp, inputs)
+            for pred in preds:  # flatten batch of predictions
+                yield fp, pred
 
 
 if __name__ == '__main__':
@@ -65,5 +110,5 @@ if __name__ == '__main__':
     i2 = np.expand_dims(np.array([[2, 2], [2, 2]]), 0)
     i3 = np.expand_dims(np.array([[3, 3], [3, 3]]), 0)
     # samples = [ (1,2,'myfp'), (1,2,'myfp')]
-    samples = [([i1, i2], i3, 'myfp'), ([i1, i2], i3, 'myfp')]
+    samples = [('myfp', [i1, i2], i3), ('myfp', [i1, i2], i3)]
     samples >> BuildBatch(2) >> nf.Consume()
