@@ -118,13 +118,14 @@ def demo(model):
     samples = list(gen_samples(1))
     preds = samples >> BuildBatch(1, outcol=None) >> Predict(
         model) >> nf.Collect()
-    print(samples[0][1])
+    #print(samples[0][1])
     n = round(preds[0][1].numpy() + 0.4)
-    print(n)
+    #print(n)
     text2speech('I am listening')
     while True:
         recognized = speech2text()
         if 'how many' in recognized:
+            print(n)
             text2speech('there are %d objects' % n)
         elif 'show me' in recognized:
             print(samples[0][1])
