@@ -70,6 +70,7 @@ def BuildBatch(samples, batchsize, fpcol=0, incol=1, outcol=2, verbose=False):
 
 @nf.nut_processor
 def Train(batches, model):
+    model.train()
     device = model.device
     for fp, inputs, outputs in batches:
         model.optimizer.zero_grad()
@@ -86,6 +87,7 @@ def Train(batches, model):
 
 @nf.nut_processor
 def Validate(batches, model):
+    model.eval()
     device = model.device
     with torch.no_grad():
         for fp, inputs, outputs in batches:
@@ -99,10 +101,10 @@ def Validate(batches, model):
 
 @nf.nut_processor
 def Predict(batches, model):
-    device = model.device
+    model.eval()
     with torch.no_grad():
         for fp, inputs in batches:
-            inputs = to_tensor(inputs, device)
+            inputs = to_tensor(inputs, model.device)
             preds = model(fp, inputs)
             for pred in preds:  # flatten batch of predictions
                 yield fp, pred
