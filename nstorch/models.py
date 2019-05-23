@@ -5,8 +5,8 @@
 
 import torch
 import torch.nn as nn
-import torch.optim as optim
 
+from torchsummary import summary
 from nstorch.losses import mse_loss
 
 
@@ -30,6 +30,7 @@ class NSModule(nn.Module):
         self.locals = {m.name: m for m in modules}
         self.device = device
         self.to(device)
+        self.best_score = None  # score of best scoring network so far
 
     def loss(self, fp):
         """Return loss function for given functional program"""
@@ -49,6 +50,41 @@ class NSModule(nn.Module):
         for m in self._modules.values():
             m.context = inputs
         return eval(fp, None, self.locals)
+
+    def save_weights(self, filepath='weights.pt'):
+        torch.save(self.state_dict(), filepath)
+
+    def load_weights(self, filepath='weights.pt'):
+        self.load_state_dict(torch.load(filepath))
+
+    def save_best(self, score, isloss=True, filepath='weights.pt'):
+        """
+        Save weights of best network
+
+        :param float score: Score of the network, e.g. loss, accuracy
+        :param bool isloss: True means lower score is better, e.g. loss
+          and the network with the lower score score is saved.
+        :param str filepath: Path to weights file.
+        """
+
+        if (not self.best_score or
+                (isloss is True and score <= self.best_score) or
+                (isloss is False and score >= self.best_score)):
+            self.best_score = score
+            self.save_weights(filepath)
+
+    def print_layers(self, input_shape=None):
+        """
+        Print network architecture (and layer dimensions).
+
+        :param tuple|None input_shape: (C, H, W) or None
+               If None, layer dimensions and param numbers are not printed.
+        """
+        if input_shape:
+            device = self.device[:4]  # remove GPU id, e.g. cuda:0
+            summary(self, input_shape, device=device)
+        else:
+            print(str(self))
 
 
 class Gt(nn.Module):
