@@ -110,6 +110,11 @@ def train(model):
         #             Validate(model) >> nf.Collect())
         # print('v_loss', np.mean(v_losses))
 
+def predict(model):
+    print('predicting...')
+    samples = list(gen_samples(2))
+    (samples >> BuildBatch(1, outcol=None) >> Predict(model) >>
+     nf.Zip(samples >> nf.Get(1,3)) >> nf.Print() >> nf.Consume())
 
 def demo(model):
     print('speaking...')
@@ -144,9 +149,7 @@ if __name__ == '__main__':
     model = NSModule(modules, device=device)
 
     train(model)
-    demo(model)
+    predict(model)
+    #demo(model)
 
-    # print('predicting...')
-    # samples = list(gen_samples(2))
-    # (samples >> BuildBatch(1, outcol=None) >> Predict(model) >>
-    #  nf.Zip(samples >> nf.Get(1,3)) >> nf.Print() >> nf.Consume())
+

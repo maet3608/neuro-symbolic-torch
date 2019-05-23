@@ -8,9 +8,7 @@ import numpy as np
 import nutsflow as nf
 
 from nutsflow.common import console
-
-
-#from nutsml.datautil import batchstr
+from nutsml.datautil import batchstr
 
 
 def to_list(x):
@@ -59,12 +57,12 @@ def BuildBatch(samples, batchsize, fpcol=0, incol=1, outcol=2, verbose=False):
                 outputs = to_array(bc[outcol])
                 if verbose:
                     fmtstr = "batch in:{} out:{}, fp:{}"
-                    #console(fmtstr.format(batchstr(inputs), batchstr(outputs), fp))
+                    console(fmtstr.format(batchstr(inputs), batchstr(outputs), fp))
                 yield fp, inputs, outputs
             else:
                 if verbose:
                     fmtstr = "batch in:{} fp:{}"
-                    #console(fmtstr.format(batchstr(inputs), fp))
+                    console(fmtstr.format(batchstr(inputs), fp))
                 yield fp, inputs
 
 

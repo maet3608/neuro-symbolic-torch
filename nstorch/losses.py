@@ -14,7 +14,7 @@ def mse_loss(pred, tar):
 
 
 def dice_loss(pred, tar):
-    smooth = 1.0
+    smooth = 0.1
     iflat = pred.view(-1)
     tflat = tar.view(-1)
     intersection = (iflat * tflat).sum()
