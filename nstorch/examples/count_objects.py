@@ -99,7 +99,7 @@ class FilterObj(nn.Module):
 def train(model):
     model.optimizer = optim.Adam(model.parameters(), lr=0.1)
 
-    samples = sorted(gen_samples(), key=lambda s: s[0].count('('))
+    samples = sorted(gen_samples(), key=lambda s: s[0])
     print('training...')
     for epoch in range(100):
         print('epoch', epoch)
