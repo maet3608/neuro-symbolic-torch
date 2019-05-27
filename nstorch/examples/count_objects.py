@@ -25,10 +25,10 @@ def gen_samples(n=100, s=5):
         num_ma = np.float32(np.sum(img > 0))
         mask = img.copy()
         lower, upper = count_hemifield(img)
-        # yield ('CountObj(FilterObj(_))', img, num_ma)
-        # yield ('FilterObj(_)', img, mask)
-        yield 'CountObj(Hemifield_up(FilterObj(_)))', img, upper
-        # yield 'Gt2(CountObj(Hemifield_up(FilterObj(_))))', img, int(upper > 2)
+        # yield ('CountObj(FilterObj(x))', img, num_ma)
+        # yield ('FilterObj(x)', img, mask)
+        yield 'CountObj(Hemifield_up(FilterObj(x)))', img, upper
+        # yield 'Gt2(CountObj(Hemifield_up(FilterObj(x))))', img, int(upper > 2)
 
 
 def count_hemifield(img):
@@ -57,7 +57,7 @@ class Hemifield(nn.Module):
             hemi[:, :, :r // 2, :] = 1
         else:
             hemi[:, :, r // 2:, :] = 1
-        return (x * hemi)
+        return x * hemi
 
 
 class CountObj(nn.Module):

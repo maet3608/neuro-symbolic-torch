@@ -46,7 +46,7 @@ class NSModule(nn.Module):
         :return: Output of network
         """
         inputs = inputs[0] if len(inputs) == 1 else inputs
-        self.locals['_'] = inputs
+        self.locals['x'] = inputs
         for m in self._modules.values():
             m.context = inputs
         return eval(fp, None, self.locals)
