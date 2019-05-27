@@ -24,7 +24,7 @@ def to_list(x):
 
 def to_array(cols):
     """Convert data columns in batch to numpy arrays"""
-    return [np.stack(c) for c in zip(*map(to_list, cols))]
+    return [np.stack(cs) for cs in zip(*map(to_list, cols))]
 
 
 def to_tensor(elements, device):
