@@ -26,19 +26,22 @@ def speech2text():
     import speech_recognition as sr
     recording = sr.Recognizer()
     with sr.Microphone(device_index=1) as source:
-        # recording.adjust_for_ambient_noise(source)
+        #recording.adjust_for_ambient_noise(source)
         print("listening...")
         audio = recording.listen(source)
         try:
-            recognized = recording.recognize_google(audio)
+            recognized = recording.recognize_google(audio,  show_all=True)
+            #recognized = recording.recognize_ibm(audio)
             print("recognized:", recognized)
-            return recognized
-        except Exception as e:
-            print(e)
-            return ''
+            #text2speech('You said, '+recognized)
+        except sr.UnknownValueError:
+            print("Google Speech Recognition could not understand audio")
+        except sr.RequestError as e:
+            print("No results {0}".format(e))
+        print('done.')
 
 
 if __name__ == '__main__':
     list_microphones()
-    text2speech("there are 0 balls")
-    # speech2text()
+    #text2speech()
+    speech2text()
