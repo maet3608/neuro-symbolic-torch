@@ -7,6 +7,7 @@ http://code.activestate.com/recipes/576412-speech-recognition-and-voice
 conda install pyaudio
 pip install SpeechRecognition
 """
+import speech_recognition as sr
 
 
 def text2speech(text='What is your wish my master'):
@@ -16,24 +17,20 @@ def text2speech(text='What is your wish my master'):
 
 
 def list_microphones():
-    import speech_recognition as sr
-    names = sr.Microphone().list_microphone_names()
-    for i, name in enumerate(names):
-        print(i, name)
+    return sr.Microphone().list_microphone_names()
 
 
-def speech2text():
-    import speech_recognition as sr
+def speech2text(device_index):
     recording = sr.Recognizer()
-    with sr.Microphone(device_index=1) as source:
-        #recording.adjust_for_ambient_noise(source)
+    with sr.Microphone(device_index=device_index) as source:
+        # recording.adjust_for_ambient_noise(source)
         print("listening...")
         audio = recording.listen(source)
         try:
-            recognized = recording.recognize_google(audio,  show_all=True)
-            #recognized = recording.recognize_ibm(audio)
+            recognized = recording.recognize_google(audio)
+            # recognized = recording.recognize_ibm(audio)
             print("recognized:", recognized)
-            #text2speech('You said, '+recognized)
+            # text2speech('You said, '+recognized)
         except sr.UnknownValueError:
             print("Google Speech Recognition could not understand audio")
         except sr.RequestError as e:
@@ -42,6 +39,6 @@ def speech2text():
 
 
 if __name__ == '__main__':
-    list_microphones()
+    for i, name in enumerate(list_microphones()): print(i, name)
     #text2speech()
-    speech2text()
+    speech2text(0)
