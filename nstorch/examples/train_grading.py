@@ -6,50 +6,39 @@ import random
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torch.nn.functional as F
-import torch.optim.lr_scheduler as lrs
+
 import nutsflow as nf
 import nutsml as nm
 import numpy as np
 
 from nstorch.models import NSModule
-from nstorch.base import BuildBatch, Train, Validate, Predict
+from nstorch.base import BuildBatch, Train, Predict
 from nstorch.losses import mse_loss, dice_loss
 from fundus_generator import gen_samples, C_PATHO, C_MASK
 
-C, H, W = 3, 64, 64  # image dimensions
-EPOCHS = 0
+IC, IH, IW = 3, 64, 64  # image dimensions
+EPOCHS = 1
 BATCHSIZE = 64
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-SEGNETS = ['od', 'fo', 'ha', 'ex', 'ma']
-SGCONF = {'samples': 100,
+OBJS = ['fu', 'od', 'fo', 'ha', 'ex', 'ma']
+CONFIG = {'samples': 100,
           'pathologies': {
-              'ha': [0, 3],
-              'ex': [0, 5],
-              'ma': [0, 10]
+              'ha': [0, 2],
+              'ex': [0, 2],
+              'ma': [0, 5]
           }}
 
 
-class Gauss(nn.Module):
-    def __init__(self):
-        super(Gauss, self).__init__()
-        self.mean = nn.Parameter(torch.Tensor([1.0]))
-        self.std = nn.Parameter(torch.Tensor([1.]))
-
-    def forward(self, x):
-        return torch.exp((-(x - self.mean) ** 2) / (2 * self.std ** 2))
-
-
 class Segment(nn.Module):
-    """Fake, perfect pathology  segmentation based on color"""
+    """Fake, perfect pathology segmentation based on color"""
 
     def __init__(self, name):
         super(Segment, self).__init__()
-        self.name = 'segment_' + name
+        self.name = 'seg_' + name
         self.loss = dice_loss
 
         color = C_PATHO[name]
-        grid = [[color for _ in range(W)] for _ in range(H)]
+        grid = [[color for _ in range(IW)] for _ in range(IH)]
         self.color = torch.Tensor(grid).permute(2, 0, 1).to(DEVICE)
         self.c = nn.Parameter(torch.Tensor([C_MASK]))
 
@@ -59,72 +48,13 @@ class Segment(nn.Module):
         return ret.unsqueeze(1)  # add color channel
 
 
-class __Segment(nn.Module):
-    """Model for pathology segmentation"""
-
-    def __init__(self, name):
-        super(Segment, self).__init__()
-        self.layers = nn.Sequential(
-            nn.Conv2d(3, 1, kernel_size=7, padding=3),
-            nn.Conv2d(1, 1, kernel_size=5, padding=2),
-            nn.Conv2d(1, 1, kernel_size=3, padding=1),
-            nn.Conv2d(1, 1, kernel_size=3, padding=1),
-            nn.Sigmoid(),
-        )
-        self.name = 'segment_' + name
-        self.loss = dice_loss
-
-    def forward(self, x):
-        return self.layers(x)
-
-
-class Instance(nn.Module):
-    """Model for instance segmentation"""
-
-    def __init__(self, name):
-        super(Instance, self).__init__()
-        self.conv1 = nn.Conv2d(1, 1, kernel_size=9, padding=4)
-        self.conv2 = nn.Conv2d(1, 1, kernel_size=7, padding=3)
-        self.conv3 = nn.Conv2d(1, 1, kernel_size=5, padding=2)
-        self.conv4 = nn.Conv2d(1, 1, kernel_size=3, padding=1)
-        self.name = 'instance_' + name
-        self.loss = dice_loss
-
-    def forward(self, x):
-        x = self.conv1(x)
-        x = self.conv2(x)
-        x = self.conv3(x)
-        x = self.conv4(x)
-        return F.sigmoid(x)
-
-
-class __Hemifield(nn.Module):
-    """Filter given segmentation for upper or lower hemifield"""
-
-    def __init__(self, isupper):
-        super(__Hemifield, self).__init__()
-        self.name = 'hemifield_' + ('up' if isupper else 'lo')
-        self.loss = dice_loss
-        self.isupper = isupper
-        self.h = nn.Parameter(torch.Tensor([0.1]))
-
-    def forward(self, x):
-        hemi = torch.zeros_like(x)
-        r = int(H * self.h)
-        if self.isupper:
-            hemi[:, :, :r, :] = 1
-        else:
-            hemi[:, :, r:, :] = 1
-        return x * hemi
-
-
 class Hemifield(nn.Module):
     """Filter given segmentation for upper or lower hemifield
     where hemifield is defined as by horizontal line through fovea"""
 
     def __init__(self, isupper):
         super(Hemifield, self).__init__()
-        self.name = 'hemifield_' + ('up' if isupper else 'lo')
+        self.name = 'hem_' + ('up' if isupper else 'lo')
         self.loss = dice_loss
         self.isupper = isupper
 
@@ -140,27 +70,17 @@ class Hemifield(nn.Module):
         return x * hemi
 
 
-class __Count(nn.Module):
-    def __init__(self, name):
-        super(Count, self).__init__()
-        self.name = 'count_' + name
-        self.loss = mse_loss
-        self.c = nn.Parameter(torch.Tensor([1.0]))
-
-    def forward(self, x):
-        return (x * self.c).sum((1, 2, 3))
-
-
 class Count(nn.Module):
     def __init__(self, name):
         super(Count, self).__init__()
-        self.name = 'count_' + name
+        self.name = 'cnt_' + name
         self.loss = mse_loss
 
     def forward(self, x):
         from skimage.feature import blob_log
+        sigmas = {'cnt_ma': 1, 'cnt_fu':20}
+        s = sigmas.get(self.name, 3)
         counts = []
-        s = 1 if self.name == 'count_ma' else 3  # smaller sigma for microano
         for mask in x:
             mask = np.squeeze(mask.cpu().detach().numpy())
             blobs = blob_log(mask, min_sigma=s, max_sigma=20, threshold=.1)
@@ -180,6 +100,8 @@ def AdjChannels(sample):
 
 def train(model, samples, epochs):
     """Train network for given number of epochs"""
+    model.optimizer = optim.Adam(model.parameters(), amsgrad=False,
+                                 lr=0.00057, weight_decay=1.55e-05)
     # plot = nm.PlotLines(None)
     for epoch in range(epochs):
         losses = (samples >> AdjChannels() >>
@@ -214,37 +136,62 @@ def predict(model, samples):
     #  nf.Print() >> nf.Consume())
 
 
+def predict_one(model, fn, img):
+    img = np.moveaxis(img, -1, 0)  # move channel axis to front
+    build_batch = BuildBatch(1, outcol=None)
+    preds = [(fn, img)] >> build_batch >> Predict(model) >> nf.Collect()
+    pred = preds[0][1]
+    return pred.cpu().numpy()
+
+
 def print_parameters(model):
     print('model parameters')
     for n, p in model.named_parameters():
         print(n, p.shape, p.requires_grad)
 
 
-if __name__ == '__main__':
-    samples = sorted(gen_samples(SGCONF, H, W), key=lambda s: s[0])
+def complexity(sample):
+    """Sort key for samples according to functional program.
+    By number of function calls first and then alphabetical"""
+    fn = sample[0]
+    return fn.count('('), fn
+
+
+def create_samples():
+    samples = sorted(gen_samples(CONFIG, IH, IW), key=complexity)
     # samples >> nm.ViewImage((0, 1), pause=1) >> nf.Consume()
+    return samples
 
-    print('creating vocabulary...')
-    submods = []
-    for name in SEGNETS:
-        submods.append(Segment(name))
-        # submods.append(Instance(name))
-        submods.append(Count(name))
-    submods.append(Hemifield(True))
 
+def create_model():
+    mods = []
+    for name in OBJS:
+        mods.append(Segment(name))
+        mods.append(Count(name))
+    mods.append(Hemifield(True))
+    mods.append(Hemifield(False))
+    return NSModule(mods, device=DEVICE)
+
+
+if __name__ == '__main__':
     print('creating model...')
-    model = NSModule(submods, device=DEVICE)
+    model = create_model()
     model.print_layers()
     print_parameters(model)
 
-    model.optimizer = optim.Adam(model.parameters(), amsgrad=False,
-                                  lr=0.00057, weight_decay=1.55e-05)
+    samples = create_samples()
 
     print('training ...')
     # model.load_weights('best_weights.pt')
     train(model, samples, epochs=EPOCHS)
+    #
+    # print('predicting ...')
+    # # model.load_weights('best_weights.pt')
+    # random.shuffle(samples)
+    # predict(model, samples)
 
-    print('predicting ...')
+    # print('predicting one...')
     # model.load_weights('best_weights.pt')
-    random.shuffle(samples)
-    predict(model, samples)
+    # fn, img, _ = samples[0]
+    # print(fn)
+    # print(predict_one(model, fn, img))

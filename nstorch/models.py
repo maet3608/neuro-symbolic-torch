@@ -6,12 +6,14 @@
 import torch
 import torch.nn as nn
 
+from torch import Tensor
+from torch.nn import Parameter
 from torchsummary import summary
 from nstorch.losses import mse_loss
 
 
 class NSModule(nn.Module):
-    """A neuro-symbolic module"""
+    """A neuro-symbolic module that is composed of sub-modules"""
 
     def __init__(self, modules, device):
         """
@@ -88,21 +90,36 @@ class NSModule(nn.Module):
 
 
 class Gt(nn.Module):
+    """Greater Than"""
+
     def __init__(self, threshold, trainable=False):
         super(Gt, self).__init__()
-        self.name = 'Gt' + str(threshold)
+        self.name = 'G_' + str(threshold)
         self.loss = mse_loss
-        self.threshold = torch.Tensor([threshold])
-        self.slope = torch.Tensor([1.0])
-        if trainable:
-            self.threshold = nn.Parameter(self.threshold)
-            self.slope = nn.Parameter(self.slope)
+        self.threshold = Parameter(Tensor([threshold]), requires_grad=trainable)
+        self.slope = Parameter(Tensor([1.0]), requires_grad=trainable)
 
     def forward(self, x):
         return torch.sigmoid(x * self.slope - self.threshold)
 
 
+class St(nn.Module):
+    """Smaller Than"""
+
+    def __init__(self, threshold, trainable=False):
+        super(St, self).__init__()
+        self.name = 'St_' + str(threshold)
+        self.loss = mse_loss
+        self.threshold = Parameter(Tensor([threshold]), requires_grad=trainable)
+        self.slope = Parameter(Tensor([1.0]), requires_grad=trainable)
+
+    def forward(self, x):
+        return torch.sigmoid(-x * self.slope + self.threshold)
+
+
 class Not(nn.Module):
+    """Not"""
+
     def __init__(self):
         super(Not, self).__init__()
         self.name = 'Not'
@@ -113,15 +130,14 @@ class Not(nn.Module):
 
 
 class And(nn.Module):
+    """And"""
+
     def __init__(self, trainable=False):
         super(And, self).__init__()
         self.name = 'And'
         self.loss = mse_loss
-        self.threshold = torch.Tensor([7.6])
-        self.slope = torch.Tensor([5.5])
-        if trainable:
-            self.threshold = nn.Parameter(self.threshold)
-            self.slope = nn.Parameter(self.slope)
+        self.threshold = Parameter(Tensor([7.6]), requires_grad=trainable)
+        self.slope = Parameter(Tensor([5.5]), requires_grad=trainable)
 
     def forward(self, a, b):
         ret = torch.sigmoid((a + b) * self.slope - self.threshold)
@@ -129,15 +145,14 @@ class And(nn.Module):
 
 
 class Or(nn.Module):
+    """Or"""
+
     def __init__(self, trainable=False):
         super(Or, self).__init__()
         self.name = 'Or'
         self.loss = mse_loss
-        self.threshold = torch.Tensor([3.2])
-        self.slope = torch.Tensor([5.5])
-        if trainable:
-            self.threshold = nn.Parameter(self.threshold)
-            self.slope = nn.Parameter(self.slope)
+        self.threshold = Parameter(Tensor([3.2]), requires_grad=trainable)
+        self.slope = Parameter(Tensor([5.5]), requires_grad=trainable)
 
     def forward(self, a, b):
         ret = torch.sigmoid((a + b) * self.slope - self.threshold)
@@ -145,19 +160,16 @@ class Or(nn.Module):
 
 
 class Xor(nn.Module):
+    """Exclusive Or"""
+
     def __init__(self, trainable=True):
         super(Xor, self).__init__()
         self.name = 'Xor'
         self.loss = mse_loss
-        self.threshold = torch.Tensor([-26.3])
-        self.slope = torch.Tensor([-78])
-        self.w1 = torch.Tensor([2.7])
-        self.w2 = torch.Tensor([0.7])
-        if trainable:
-            self.threshold = nn.Parameter(self.threshold)
-            self.slope = nn.Parameter(self.slope)
-            self.w1 = nn.Parameter(self.w1)
-            self.w2 = nn.Parameter(self.w2)
+        self.threshold = Parameter(Tensor([-26.3]), requires_grad=trainable)
+        self.slope = Parameter(Tensor([-78]), requires_grad=trainable)
+        self.w1 = Parameter(Tensor([2.7]), requires_grad=trainable)
+        self.w2 = Parameter(Tensor([0.7]), requires_grad=trainable)
 
     def forward(self, a, b):
         sig = torch.sigmoid

@@ -159,7 +159,6 @@ def gen_images(config, ir, ic):
         yield img
 
 
-
 def gen_samples(config, ir, ic):
     for _ in range(config['samples']):
         samples = []
@@ -203,18 +202,17 @@ def gen_samples(config, ir, ic):
         # emit samples
         # grade = calc_grade(samples)
         for ptype, n, mask, imask in samples:
-            # fp = 'segment_%s(x)' % ptype
-            # yield (fp, img, mask)
+            fp = 'seg_%s(x)' % ptype
+            yield (fp, img, mask)
 
-            fp = 'hemifield_up(segment_%s(x), segment_fo(x))' % ptype
-            yield (fp, img, hemifield(mask, True))
-
-            # fp = 'hemifield_lo(segment_{0}(x))'.format(ptype)
+            # fp = 'hemi_lo(seg_{0}(x))'.format(ptype)
             # yield (fp, img, hemifield(mask, False))
 
-            # if ptype == 'ma':
-            #     yield ('count_ma(segment_ma(x))', img, n)
-            #     #yield ('segment_ma(x)', img, mask)
+            if ptype == 'ma':
+                yield ('cnt_ma(seg_ma(x))', img, n)
+                # yield ('seg_ma(x)', img, mask)
+                # fp = 'hem_up(seg_ma(x), seg_fo(x))'
+                # yield (fp, img, hemifield(mask, True))
 
 
 def find_blobs(sample):
@@ -233,7 +231,7 @@ if __name__ == '__main__':
 
     ir, ic = 64, 64
     config = {'samples': 5,
-               'pathologies': {'ha': [1, 1], 'ex': [2, 2], 'ma': [3, 3]}}
+              'pathologies': {'ha': [1, 1], 'ex': [2, 2], 'ma': [3, 3]}}
     gen_images(config, ir, ic) >> ViewImage(None, pause=10) >> Consume()
 
     # sg_conf = {'samples': 5,

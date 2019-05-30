@@ -1,25 +1,19 @@
 """
-TODO:
-
-layout:
-https://effbot.org/tkinterbook/grid.htm
-https://www.delftstack.com/tutorial/tkinter-tutorial/tkinter-geometry
--managers/
-http://zetcode.com/tkinter/layout/
-
-fonts:
-https://stackoverflow.com/questions/20588417/how-to-change-font-and
--size-of-buttons-and-frame-in-tkinter-using-python
-
 icons:
 https://www.materialui.co/icon/mic
 
-background listening:
-https://github.com/Uberi/speech_recognition/blob/master/examples/background_listening.py
+
+TODO;
+- answer_question
+  - count: say and print number of objs
+  - show: segment obj and overlay on image
+  - grade: say and print grade
+  - what: take mouse position, do all segementation, find hit, print and say obj
 """
 
 import os
 import os.path as osp
+import pythoncom
 import tkinter as tk
 import skimage.transform as skt
 import speech_recognition as sr
@@ -28,11 +22,32 @@ from tkinter import N, E, W, S
 from tkinter.scrolledtext import ScrolledText
 from PIL import Image, ImageTk
 from fundus_generator import gen_images
+from threading import Thread
+from win32com.client import Dispatch
+from train_grading import create_model, predict_one, IH, IW
 
 from tkinter import ttk  # Normal Tkinter.* widgets are not themed!
 from ttkthemes import ThemedTk
 
 FONT = 'Calabri', 16
+
+
+class Speak(Thread):
+    """Text to speech in background thread"""
+
+    def __init__(self, text):
+        Thread.__init__(self)
+        self.text = text
+
+    def run(self):
+        pythoncom.CoInitialize()
+        dispatch = Dispatch("SAPI.SpVoice")
+        dispatch.Speak(self.text)
+
+
+def say(text):
+    """Speak the given text in background thread"""
+    Speak(text).start()
 
 
 def set_text(box, text):
@@ -41,19 +56,48 @@ def set_text(box, text):
     box.insert(start, text)
 
 
+def speech2text(app):
+    app.btn_mic.config(image=app.img_mic_on)
+    with sr.Microphone(device_index=app.device_index) as source:
+        try:
+            set_text(app.txt_out, 'listening...')
+            audio = app.recognizer.listen(source)
+            app.recognized = app.recognizer.recognize_google(audio)
+            set_text(app.ent_cmnd, app.recognized)
+            set_text(app.txt_out, '')
+            app.execute()
+        except sr.UnknownValueError:
+            set_text(app.txt_out, 'Could not recognize audio!')
+        except sr.RequestError as e:
+            set_text(app.txt_out, 'Could not connect: {0}'.format(e))
+    app.btn_mic.config(image=app.img_mic_off)
+
+
 class App(ttk.Frame):
+    """The main Application"""
 
     def __init__(self, window):
         ttk.Frame.__init__(self, master=window)
         window.title("Neuro-symbolic DR grading")
+        window.columnconfigure(0, weight=1)
+        window.rowconfigure(0, weight=1)
         # window.config(background='white')
 
+        # icons
+        self.img_run = ImageTk.PhotoImage(file='run.gif')
+        self.img_mic_off = ImageTk.PhotoImage(file='mic_off.gif')
+        self.img_mic_on = ImageTk.PhotoImage(file='mic_on.gif')
+
         self.recognizer = sr.Recognizer()
+        self.recognized = ''  # recognized text
+
+        self.model = create_model()
+        self.model.load_weights('best_weights.pt')
+
 
         conf = {'samples': 10,
                 'pathologies': {'ha': [0, 3], 'ex': [0, 4], 'ma': [0, 10]}}
-        ir, ic = 64, 64
-        self.images = list(gen_images(conf, ir, ic))
+        self.images = list(gen_images(conf, IH, IW))
         self.iidx = 0
 
         self.scale = 8  # image scale factor
@@ -64,27 +108,23 @@ class App(ttk.Frame):
                             sticky=W + N, padx=5, pady=5)
 
         btn_prev = ttk.Button(window, text="<<", command=self.prev_img)
-        btn_prev.grid(column=0, row=2, sticky=W + E + N, padx=5, pady=5)
+        btn_prev.grid(column=0, row=2, sticky=W + N, padx=5, pady=5)
 
         btn_next = ttk.Button(window, text=">>", command=self.next_img)
-        btn_next.grid(column=1, row=2, sticky=W + E + N, padx=5, pady=5)
+        btn_next.grid(column=1, row=2, sticky=E + N, padx=5, pady=5)
 
         self.ent_cmnd = ttk.Entry(window, width=36)
         self.ent_cmnd.config(font=FONT)
-        self.ent_cmnd.grid(column=2, row=0, sticky=W + E + N + S, padx=5, pady=5)
+        self.ent_cmnd.grid(column=2, row=0, sticky=W + E + N + S, padx=5,
+                           pady=5)
         set_text(self.ent_cmnd, 'What grade is this?')
 
-        run_img = ImageTk.PhotoImage(file='run.gif')
-        btn_run = tk.Button(window, image=run_img, borderwidth=0)
-        btn_run.img = run_img  # keep reference
+        btn_run = tk.Button(window, image=self.img_run, borderwidth=0,
+                            command=self.execute)
         btn_run.grid(column=3, row=0, sticky=E + N, padx=5, pady=5)
 
-        img_mic_off = ImageTk.PhotoImage(file='mic_off.gif')
-        img_mic_on = ImageTk.PhotoImage(file='mic_on.gif')
-        btn_mic = tk.Button(window, image=img_mic_off, borderwidth=0,
+        btn_mic = tk.Button(window, image=self.img_mic_off, borderwidth=0,
                             command=self.listen_mic)
-        btn_mic.img_mic_off = img_mic_off  # keep reference
-        btn_mic.img_mic_on = img_mic_on  # keep reference
         btn_mic.on = False
         btn_mic.grid(column=4, row=0, sticky=E + N, padx=5, pady=5)
         self.btn_mic = btn_mic
@@ -104,6 +144,63 @@ class App(ttk.Frame):
 
         # self.window.bind("<Key>", self.key_pressed)
 
+    def contains(self, *words):
+        """Returns true if any of the words is in the recognized text"""
+        return any(w for w in words if w in app.ent_cmnd.get())
+
+    def translate(self):
+        """Translate text into functional program"""
+        c = self.contains
+        obj = None
+        if c('haemorrhage', 'haemorhage', 'memori', 'hemorr'):
+            obj = 'ha'
+        if c('exudate', 'exit'):
+            obj = 'ex'
+        if c('micro'):
+            obj = 'ma'
+        if c('optic disc', 'disc'):
+            obj = 'od'
+        if c('fovea'):
+            obj = 'fo'
+        if c('fundus'):
+            obj = 'fu'
+
+        if c('show') and obj:
+            return 'segment_%s(x)' % obj
+
+        if c('count', 'how many') and obj:
+            fn = 'cnt_%s(seg_%s(x))' % (obj, obj)
+            answer = 'There are '
+            return fn, answer
+
+        return None
+
+    def execute(self):
+        """Execute action specified in command field"""
+        c = self.contains
+        if c('next', 'forward') and c('image'):
+            say("okay next image")
+            self.next_img()
+
+        elif c('previous', 'back') and c('image'):
+            say("okay previous image")
+            self.prev_img()
+
+        elif c('end', 'quit', 'finish') and c('program', 'application', 'demo'):
+            say("As you wish my master")
+            self.master.destroy()
+        else:
+            fn, ans = self.translate()
+            if not fn:
+                say("I don't understand")
+                return
+            y = predict_one(self.model, fn, self.imgarr)
+            print('predict_one', fn, y)
+            y = str(round(y.item()))
+            text = ans + str(y)
+            set_text(app.txt_out, text)
+            say(text)
+
     def next_img(self):
         self.iidx = min(self.iidx + 1, len(self.images) - 1)
         self.load_image()
@@ -115,22 +212,22 @@ class App(ttk.Frame):
         self.img_panel.config(image=self.image)
 
     def listen_mic(self):
-        btn = self.btn_mic
-        btn.config(image=btn.img_mic_on)
-        self.speech2text()
-        btn.config(image=btn.img_mic_off)
+        thread = Thread(target=speech2text, args=(self,))
+        thread.start()
 
     def select_mic(self, event):
         name = self.com_mic.get()
         self.device_index = self.mics.index(name)
+        with sr.Microphone(device_index=self.device_index) as source:
+            self.recognizer.adjust_for_ambient_noise(source)
 
     def load_image(self):
-        imgarr = self.images[self.iidx]
-        imgarr = skt.rescale(imgarr, scale=self.scale, order=0,
+        self.imgarr = self.images[self.iidx]
+        imgscaled = skt.rescale(self.imgarr, scale=self.scale, order=0,
                              multichannel=True,
                              anti_aliasing=None, anti_aliasing_sigma=None,
                              preserve_range=True).astype('uint8')
-        pilimg = Image.fromarray(imgarr)
+        pilimg = Image.fromarray(imgscaled)
         self.image = ImageTk.PhotoImage(image=pilimg)
 
     def image_panel(self):
@@ -154,19 +251,7 @@ class App(ttk.Frame):
         if event.keycode == 37:  # cursor right
             self.prev_img()
 
-    def speech2text(self):
-        with sr.Microphone(device_index=self.device_index) as source:
-            try:
-                # self.recognizer.adjust_for_ambient_noise(source)
-                audio = self.recognizer.listen(source)
-                recognized = self.recognizer.recognize_google(audio)
-                set_text(self.ent_cmnd, recognized)
-            except sr.UnknownValueError:
-                set_text(self.txt_out, 'Could not recognize audio!')
-            except sr.RequestError as e:
-                set_text(self.txt_out, 'Recognition failed: {0}'.format(e))
 
-
-window = ThemedTk(theme='arc')  # arc,plastik,equilux,aqua,scidgrey
+window = ThemedTk(theme='plastik')  # arc,plastik,equilux,aqua,scidgrey
 app = App(window)
 app.mainloop()
