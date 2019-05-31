@@ -210,8 +210,6 @@ def gen_samples(config, ir, ic):
         fovea_imks[rp, cp] = C_MASK
         samples.append(('fo', 1, fovea_msk, fovea_imks))
 
-
-
         inmsk = fundus_msk - fovea_msk - od_msk
 
         # draw pathologies
