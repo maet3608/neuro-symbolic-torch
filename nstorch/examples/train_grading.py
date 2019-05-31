@@ -79,7 +79,7 @@ class Count(nn.Module):
     def forward(self, x):
         from skimage.feature import blob_log
         sigmas = {'cnt_ma': (1, 2), 'cnt_fu': (50, 51), 'cnt_od': (20, 21)}
-        smin, smax = sigmas.get(self.name, (3, 20))
+        smin, smax = sigmas.get(self.name, (5, 20))
         counts = []
         for mask in x:
             mask = np.squeeze(mask.cpu().detach().numpy())

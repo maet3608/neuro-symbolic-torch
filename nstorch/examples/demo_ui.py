@@ -166,7 +166,7 @@ class App(ttk.Frame):
         c = self.contains
         if c('haemorrhage', 'haemorhage', 'memor', 'hemorr', 'ha '):
             return 'haemorrhage', 'ha'
-        if c('exudate', 'exit', 'accident', 'ex '):
+        if c('exudate', 'exit', 'accident', 'expert', 'ex '):
             return 'exudate', 'ex'
         if c('microaneurysm', 'micro', 'ma '):
             return 'microaneurysm', 'ma'
@@ -214,10 +214,10 @@ class App(ttk.Frame):
 
     def action_count(self, topic, patho, loc, hem):
         if loc:
-            fn = 'cnt_{0}(hem_{1}(seg_{0}(x),seg_fo(x)))'.format(patho, hem)
+            fp = 'cnt_{0}(hem_{1}(seg_{0}(x),seg_fo(x)))'.format(patho, hem)
         else:
-            fn = 'cnt_{0}(seg_{0}(x))'.format(patho)
-        cnt = predict_one(self.model, fn, self.imgarr)
+            fp = 'cnt_{0}(seg_{0}(x))'.format(patho)
+        cnt = predict_one(self.model, fp, self.imgarr)
         cnt = round(cnt.item())
         if cnt == 1:
             answer = 'There is one %s' % topic
@@ -227,14 +227,14 @@ class App(ttk.Frame):
             answer += ' in the ' + loc
         say(answer)
         self.console(answer)
-        self.console('\n\nFN: ' + fn, True)
+        self.console('\n\nFP: ' + fp, True)
 
     def action_show(self, topic, patho, loc, hem):
         if loc:
-            fn = 'hem_{1}(seg_{0}(x),seg_fo(x))'.format(patho, hem)
+            fp = 'hem_{1}(seg_{0}(x),seg_fo(x))'.format(patho, hem)
         else:
-            fn = 'seg_{0}(x)'.format(patho)
-        mask = predict_one(self.model, fn, self.imgarr)
+            fp = 'seg_{0}(x)'.format(patho)
+        mask = predict_one(self.model, fp, self.imgarr)
         mask = np.squeeze(mask)
         self.load_image(overlay=mask)
         self.show_image(load=False)
@@ -243,39 +243,39 @@ class App(ttk.Frame):
             answer += ' in the ' + loc
         say(answer)
         self.console(answer)
-        self.console('\n\nFN: ' + fn, True)
+        self.console('\n\nFP: ' + fp, True)
 
     def action_what(self, topic, patho):
-        fn = 'seg_{0}(x)'.format(patho)
-        mask = predict_one(self.model, fn, self.imgarr)
+        fp = 'seg_{0}(x)'.format(patho)
+        mask = predict_one(self.model, fp, self.imgarr)
         mask = np.squeeze(mask)
         self.load_image(overlay=mask)
         self.show_image(load=False)
         answer = 'Showing ' + topic
         say(answer)
         self.console(answer)
-        self.console('\n\nFN: ' + fn, True)
+        self.console('\n\nFP: ' + fp, True)
 
     def action_grade(self):
-        grade = lambda fn: predict_one(self.model, fn, self.imgarr).item()
+        grade = lambda fp: predict_one(self.model, fp, self.imgarr).item()
         grades = []
-        fn = 'Not(cnt_ma(seg_ma(x))+cnt_ha(seg_ha(x))+cnt_ex(seg_ex(x)))'
-        grades.append(('healthy', fn, grade(fn)))
-        fn = 'Gt_0(cnt_ma(seg_ma(x)))'
-        grades.append(('mild', fn, grade(fn)))
-        fn2 = lambda h: 'Gt_2(cnt_ma(hem_%s(seg_ma(x), seg_fo(x))))' % h
-        fn = 'Xor(%s,%s)' % (fn2('up'), fn2('lo'))
-        grades.append(('moderate', fn, grade(fn)))
-        fn3 = lambda p: 'cnt_{0}(seg_{0}(x))'.format(p)
-        fn = 'Or(%s,%s)' % (fn3('ex'), fn3('ha'))
-        grades.append(('severe', fn, grade(fn)))
+        fp = 'Not(cnt_ma(seg_ma(x))+cnt_ha(seg_ha(x))+cnt_ex(seg_ex(x)))'
+        grades.append(('healthy', fp, grade(fp)))
+        fp = 'Gt_0(cnt_ma(seg_ma(x)))'
+        grades.append(('mild', fp, grade(fp)))
+        fp2 = lambda h: 'Gt_2(cnt_ma(hem_%s(seg_ma(x), seg_fo(x))))' % h
+        fp = 'Xor(%s,%s)' % (fp2('up'), fp2('lo'))
+        grades.append(('moderate', fp, grade(fp)))
+        fp3 = lambda p: 'cnt_{0}(seg_{0}(x))'.format(p)
+        fp = 'Or(%s,%s)' % (fp3('ex'), fp3('ha'))
+        grades.append(('severe', fp, grade(fp)))
 
-        for g, fn, y in reversed(grades):
+        for g, fp, y in reversed(grades):
             if y > 0.5:
                 self.console('Grade is %s (%.1f)\n' % (g, y))
                 for topic, _, cnt in self.count_pathologies():
                     self.console('\n - %s: %d' % (topic, cnt), True)
-                self.console('\n\nFN: %s' % fn, True)
+                self.console('\n\nFP: %s' % fp, True)
                 if g == 'healthy':
                     say('This patient is healthy')
                 else:
@@ -286,14 +286,14 @@ class App(ttk.Frame):
         pathos = [('haemorrhage', 'ha'), ('microaneurysm', 'ma'),
                   ('exudate', 'ex')]
         for topic, patho in pathos:
-            fn = 'cnt_{0}(seg_{0}(x))'.format(patho)
-            y = predict_one(self.model, fn, self.imgarr)
+            fp = 'cnt_{0}(seg_{0}(x))'.format(patho)
+            y = predict_one(self.model, fp, self.imgarr)
             yield topic, patho, int(y.item())
 
     def check_is_fundus(self):
         """Check if image has fovea and optic disc"""
-        fn = 'cnt_fo(seg_fo(x)) + cnt_od(seg_od(x))'
-        y = predict_one(self.model, fn, self.imgarr).item()
+        fp = 'cnt_fo(seg_fo(x)) + cnt_od(seg_od(x))'
+        y = predict_one(self.model, fp, self.imgarr).item()
         return y == 2
 
     def execute(self):
