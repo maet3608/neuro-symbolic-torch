@@ -11,7 +11,7 @@ import nutsflow as nf
 import nutsml as nm
 import numpy as np
 
-from nstorch.models import NSModule
+from nstorch.models import NSModule, Gt, St, Xor, Or, Not
 from nstorch.base import BuildBatch, Train, Predict
 from nstorch.losses import mse_loss, dice_loss
 from fundus_generator import gen_samples, C_PATHO, C_MASK
@@ -170,6 +170,11 @@ def create_model():
         mods.append(Count(name))
     mods.append(Hemifield(True))
     mods.append(Hemifield(False))
+    mods.append(Gt(0))
+    mods.append(Gt(2))
+    mods.append(Xor())
+    mods.append(Or())
+    mods.append(Not())
     return NSModule(mods, device=DEVICE)
 
 

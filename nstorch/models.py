@@ -94,13 +94,13 @@ class Gt(nn.Module):
 
     def __init__(self, threshold, trainable=False):
         super(Gt, self).__init__()
-        self.name = 'G_' + str(threshold)
+        self.name = 'Gt_' + str(threshold)
         self.loss = mse_loss
         self.threshold = Parameter(Tensor([threshold]), requires_grad=trainable)
         self.slope = Parameter(Tensor([1.0]), requires_grad=trainable)
 
     def forward(self, x):
-        return torch.sigmoid(x * self.slope - self.threshold)
+        return torch.sigmoid(x * self.slope - self.threshold - 0.1)
 
 
 class St(nn.Module):
@@ -114,7 +114,7 @@ class St(nn.Module):
         self.slope = Parameter(Tensor([1.0]), requires_grad=trainable)
 
     def forward(self, x):
-        return torch.sigmoid(-x * self.slope + self.threshold)
+        return torch.sigmoid(-x * self.slope + self.threshold + 0.1)
 
 
 class Not(nn.Module):

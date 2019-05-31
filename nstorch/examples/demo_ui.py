@@ -1,24 +1,17 @@
 """
-icons:
-https://www.materialui.co/icon/mic
-
-
-TODO;
-- answer_question
-  - count: say and print number of objs
-  - show: segment obj and overlay on image
-  - grade: say and print grade
-  - what: take mouse position, do all segementation, find hit, print and say obj
+Demo application for neuro-symbolic computing.
+Analyzes synthetic fundus images with simulated diabetic retinopathy
+and performs visual question answering with speech recognition and
+synthesis.
 """
 
-import os
-import os.path as osp
+import numpy as np
 import pythoncom
 import tkinter as tk
 import skimage.transform as skt
 import speech_recognition as sr
 
-from tkinter import N, E, W, S
+from random import choice
 from tkinter.scrolledtext import ScrolledText
 from PIL import Image, ImageTk
 from fundus_generator import gen_images
@@ -50,26 +43,20 @@ def say(text):
     Speak(text).start()
 
 
-def set_text(box, text):
-    start = 0 if isinstance(box, ttk.Entry) else '1.0'
-    box.delete(start, tk.END)
-    box.insert(start, text)
-
-
 def speech2text(app):
     app.btn_mic.config(image=app.img_mic_on)
     with sr.Microphone(device_index=app.device_index) as source:
         try:
-            set_text(app.txt_out, 'listening...')
+            app.console('listening...')
             audio = app.recognizer.listen(source)
             app.recognized = app.recognizer.recognize_google(audio)
-            set_text(app.ent_cmnd, app.recognized)
-            set_text(app.txt_out, '')
+            app.cmdline(app.recognized)
+            app.console('')
             app.execute()
         except sr.UnknownValueError:
-            set_text(app.txt_out, 'Could not recognize audio!')
+            app.console('Could not recognize audio!')
         except sr.RequestError as e:
-            set_text(app.txt_out, 'Could not connect: {0}'.format(e))
+            app.console('Could not connect: {0}'.format(e))
     app.btn_mic.config(image=app.img_mic_off)
 
 
@@ -94,45 +81,45 @@ class App(ttk.Frame):
         self.model = create_model()
         self.model.load_weights('best_weights.pt')
 
-
-        conf = {'samples': 10,
-                'pathologies': {'ha': [0, 3], 'ex': [0, 4], 'ma': [0, 10]}}
+        conf = {'samples': 50,
+                'pathologies': {'ha': [0, 1], 'ex': [0, 1], 'ma': [0, 5]}}
         self.images = list(gen_images(conf, IH, IW))
         self.iidx = 0
 
-        self.scale = 8  # image scale factor
+        self.scale = 512 // IH  # image scale factor
         self.load_image()
 
         self.img_panel = self.image_panel()
         self.img_panel.grid(column=0, row=0, columnspan=2, rowspan=2,
-                            sticky=W + N, padx=5, pady=5)
+                            sticky='wn', padx=5, pady=5)
 
         btn_prev = ttk.Button(window, text="<<", command=self.prev_img)
-        btn_prev.grid(column=0, row=2, sticky=W + N, padx=5, pady=5)
+        btn_prev.grid(column=0, row=2, sticky='en', padx=5, pady=5)
 
         btn_next = ttk.Button(window, text=">>", command=self.next_img)
-        btn_next.grid(column=1, row=2, sticky=E + N, padx=5, pady=5)
+        btn_next.grid(column=1, row=2, sticky='wn', padx=5, pady=5)
 
         self.ent_cmnd = ttk.Entry(window, width=36)
+        self.ent_cmnd.bind('<Return>', lambda e: self.execute())
         self.ent_cmnd.config(font=FONT)
-        self.ent_cmnd.grid(column=2, row=0, sticky=W + E + N + S, padx=5,
+        self.ent_cmnd.grid(column=2, row=0, sticky='wens', padx=5,
                            pady=5)
-        set_text(self.ent_cmnd, 'What grade is this?')
 
         btn_run = tk.Button(window, image=self.img_run, borderwidth=0,
                             command=self.execute)
-        btn_run.grid(column=3, row=0, sticky=E + N, padx=5, pady=5)
+        btn_run.grid(column=3, row=0, sticky='en', padx=5, pady=5)
 
         btn_mic = tk.Button(window, image=self.img_mic_off, borderwidth=0,
                             command=self.listen_mic)
         btn_mic.on = False
-        btn_mic.grid(column=4, row=0, sticky=E + N, padx=5, pady=5)
+        btn_mic.grid(column=4, row=0, sticky='en', padx=5, pady=5)
         self.btn_mic = btn_mic
 
-        self.txt_out = ScrolledText(window, width=36, height=19)
+        self.txt_out = ScrolledText(window, state='disabled',
+                                    width=36, height=19)
         self.txt_out.config(font=FONT)
         self.txt_out.grid(column=2, row=1, columnspan=3, rowspan=1,
-                          sticky=W + E + N + S, padx=5, pady=5)
+                          sticky='wens', padx=5, pady=5)
 
         self.mics = sr.Microphone().list_microphone_names()
         self.device_index = 0
@@ -140,76 +127,183 @@ class App(ttk.Frame):
         self.com_mic.bind('<<ComboboxSelected>>', self.select_mic)
         self.com_mic.current(self.device_index)
         self.com_mic.grid(column=2, row=2, columnspan=3,
-                          sticky=W + E, padx=5, pady=5)
+                          sticky='we', padx=5, pady=5)
 
         # self.window.bind("<Key>", self.key_pressed)
 
+    def console(self, text, append=False):
+        """Write text to console"""
+        self.txt_out.configure(state='normal')
+        if append:
+            self.txt_out.insert(tk.END, text)
+        else:
+            self.txt_out.delete('1.0', tk.END)
+            self.txt_out.insert('1.0', text)
+        self.txt_out.configure(state='disabled')
+
+    def cmdline(self, text):
+        """Write text to comand line box"""
+        self.ent_cmnd.delete(0, tk.END)
+        self.ent_cmnd.insert(0, text)
+
     def contains(self, *words):
         """Returns true if any of the words is in the recognized text"""
-        return any(w for w in words if w in app.ent_cmnd.get())
+        return any(w for w in words if w in app.ent_cmnd.get() + ' ')
 
-    def translate(self):
-        """Translate text into functional program"""
+    def which_topic(self):
+        """Find topic/obj/pathology in text return normalized form"""
         c = self.contains
-        obj = None
-        if c('haemorrhage', 'haemorhage', 'memori', 'hemorr'):
-            obj = 'ha'
-        if c('exudate', 'exit'):
-            obj = 'ex'
-        if c('micro'):
-            obj = 'ma'
-        if c('optic disc', 'disc'):
-            obj = 'od'
-        if c('fovea'):
-            obj = 'fo'
-        if c('fundus'):
-            obj = 'fu'
+        if c('haemorrhage', 'haemorhage', 'memori', 'hemorr', 'ha '):
+            return 'haemorrhage', 'ha'
+        if c('exudate', 'exit', 'ex '):
+            return 'exudate', 'ex'
+        if c('microaneurysm', 'micro', 'ma '):
+            return 'microaneurysm', 'ma'
+        if c('optic disc', 'disc', 'optic', 'od '):
+            return 'optic disc', 'od'
+        if c('fovea', 'fo '):
+            return 'fovea', 'fo'
+        if c('fundus', 'fu '):
+            return 'fundus', 'fu'
+        if c('image', 'pic', 'picture', 'img '):
+            return 'image', None
+        if c('program', 'application', 'demo'):
+            return 'program', None
+        return 'fundus', 'fu'
 
-        if c('show') and obj:
-            return 'segment_%s(x)' % obj
+    def which_action(self):
+        """Find action in text and return normalized form"""
+        c = self.contains
+        if c('next', 'forward'):
+            return 'next'
+        if c('previous', 'prev' 'back'):
+            return 'prev'
+        if c('count', 'how many'):
+            return 'count'
+        if c('show', 'mark', 'highlight', 'segment'):
+            return 'show'
+        if c('clear'):
+            return 'clear'
+        if c('grade', 'severity', 'level'):
+            return 'grade'
+        if c('end', 'quit', 'finish'):
+            return 'quit'
+        return 'show'
 
-        if c('count', 'how many') and obj:
-            fn = 'cnt_%s(seg_%s(x))' % (obj, obj)
-            answer = 'There are '
-            return fn, answer
+    def which_location(self):
+        """Find location in text and return normalized form"""
+        c = self.contains
+        if c('upper', 'up ') and ('hemi', 'half'):
+            return 'upper hemifield', 'up'
+        if c('lower', 'lo ') and ('hemi', 'half'):
+            return 'lower hemifield', 'lo'
+        return None, None
 
-        return None
+    def action_count(self, topic, patho, loc, hem):
+        if loc:
+            fn = 'cnt_{0}(hem_{1}(seg_{0}(x),seg_fo(x)))'.format(patho, hem)
+        else:
+            fn = 'cnt_{0}(seg_{0}(x))'.format(patho)
+        cnt = predict_one(self.model, fn, self.imgarr)
+        cnt = round(cnt.item())
+        if cnt == 1:
+            answer = 'There is one %s' % topic
+        else:
+            answer = 'There are %d %ss' % (cnt, topic)
+        if loc:
+            answer += ' in the ' + loc
+        say(answer)
+        self.console(answer)
+        self.console('\n\nFN: ' + fn, True)
+
+    def action_show(self, topic, patho, loc, hem):
+        if loc:
+            fn = 'hem_{1}(seg_{0}(x),seg_fo(x))'.format(patho, hem)
+        else:
+            fn = 'seg_{0}(x)'.format(patho)
+        mask = predict_one(self.model, fn, self.imgarr)
+        mask = np.squeeze(mask)
+        self.load_image(overlay=mask)
+        self.show_image(load=False)
+        answer = 'Showing ' + topic
+        if loc:
+            answer += ' in the ' + loc
+        say(answer)
+        self.console(answer)
+        self.console('\n\nFN: ' + fn, True)
+
+    def action_what(self, topic, patho):
+        fn = 'seg_{0}(x)'.format(patho)
+        mask = predict_one(self.model, fn, self.imgarr)
+        mask = np.squeeze(mask)
+        self.load_image(overlay=mask)
+        self.show_image(load=False)
+        answer = 'Showing ' + topic
+        say(answer)
+        self.console(answer)
+        self.console('\n\nFN: ' + fn, True)
+
+    def action_grade(self):
+        grade = lambda fn: predict_one(self.model, fn, self.imgarr).item()
+        grades = []
+        fn = 'Not(cnt_ma(seg_ma(x))+cnt_ha(seg_ha(x))+cnt_ex(seg_ex(x)))'
+        grades.append(('healthy', fn, grade(fn)))
+        fn = 'Gt_0(cnt_ma(seg_ma(x)))'
+        grades.append(('mild', fn, grade(fn)))
+        fn2 = lambda h: 'Gt_2(cnt_ma(hem_%s(seg_ma(x), seg_fo(x))))' % h
+        fn = 'Xor(%s,%s)' % (fn2('up'), fn2('lo'))
+        grades.append(('moderate', fn, grade(fn)))
+        fn3 = lambda p: 'cnt_{0}(seg_{0}(x))'.format(p)
+        fn = 'Or(%s,%s)' % (fn3('ex'), fn3('ha'))
+        grades.append(('severe', fn, grade(fn)))
+
+        for g, fn, y in reversed(grades):
+            if y > 0.5:
+                self.console('Grade is %s (%.1f)\n' % (g, y))
+                for topic, _, cnt in self.count_pathologies():
+                    self.console('\n - %s: %d' % (topic, cnt), True)
+                self.console('\n\nFN: %s' % fn, True)
+                if g == 'healthy':
+                    say('This patient is healthy')
+                else:
+                    say('This is a case of %s diabetic retinopathy' % g)
+                break
+
+    def count_pathologies(self):
+        pathos = [('haemorrhage', 'ha'), ('microaneurysm', 'ma'),
+                  ('exudate', 'ex')]
+        for topic, patho in pathos:
+            fn = 'cnt_{0}(seg_{0}(x))'.format(patho)
+            y = predict_one(self.model, fn, self.imgarr)
+            yield topic, patho, int(y.item())
 
     def execute(self):
-        """Execute action specified in command field"""
-        c = self.contains
-        if c('next', 'forward') and c('image'):
-            say("okay next image")
-            self.next_img()
+        """Execute action given in command field"""
+        topic, patho = self.which_topic()
+        loc, hem = self.which_location()
+        action = self.which_action()
 
-        elif c('previous', 'back') and c('image'):
-            say("okay previous image")
-            self.prev_img()
-
-        elif c('end', 'quit', 'finish') and c('program', 'application', 'demo'):
+        if action == 'quit' and topic == 'program':
             say("As you wish my master")
             self.master.destroy()
+        elif action == 'next' and topic == 'image':
+            say("Okay next image")
+            self.next_img()
+        elif action == 'clear' and topic == 'image':
+            say("Clearing image")
+            self.show_image()
+        elif action == 'prev' and topic == 'image':
+            say("Okay previous image")
+            self.prev_img()
+        elif action == 'count':
+            self.action_count(topic, patho, loc, hem)
+        elif action == 'show':
+            self.action_show(topic, patho, loc, hem)
+        elif action == 'grade':
+            self.action_grade()
         else:
-            fn, ans = self.translate()
-            if not fn:
-                say("I don't understand")
-                return
-            y = predict_one(self.model, fn, self.imgarr)
-            print('predict_one', fn, y)
-            y = str(round(y.item()))
-            text = ans + str(y)
-            set_text(app.txt_out, text)
-            say(text)
-
-    def next_img(self):
-        self.iidx = min(self.iidx + 1, len(self.images) - 1)
-        self.load_image()
-        self.img_panel.config(image=self.image)
-
-    def prev_img(self):
-        self.iidx = max(self.iidx - 1, 0)
-        self.load_image()
-        self.img_panel.config(image=self.image)
+            self.console('Unknown command!')
+            say(choice(['What', 'Pardon me', 'Pardon', 'I do not understand']))
 
     def listen_mic(self):
         thread = Thread(target=speech2text, args=(self,))
@@ -221,14 +315,30 @@ class App(ttk.Frame):
         with sr.Microphone(device_index=self.device_index) as source:
             self.recognizer.adjust_for_ambient_noise(source)
 
-    def load_image(self):
+    def next_img(self):
+        self.iidx = min(self.iidx + 1, len(self.images) - 1)
+        self.show_image()
+
+    def prev_img(self):
+        self.iidx = max(self.iidx - 1, 0)
+        self.show_image()
+
+    def show_image(self, load=True):
+        if load:
+            self.load_image()
+        self.img_panel.config(image=self.image)
+
+    def load_image(self, overlay=None):
         self.imgarr = self.images[self.iidx]
-        imgscaled = skt.rescale(self.imgarr, scale=self.scale, order=0,
-                             multichannel=True,
-                             anti_aliasing=None, anti_aliasing_sigma=None,
-                             preserve_range=True).astype('uint8')
-        pilimg = Image.fromarray(imgscaled)
-        self.image = ImageTk.PhotoImage(image=pilimg)
+        image = self.imgarr
+        if overlay is not None:
+            image = image.copy() / 3
+            image[overlay.astype(bool)] = (100, 255, 100)
+        image = skt.rescale(image, scale=self.scale, order=0,
+                            multichannel=True,
+                            anti_aliasing=None, anti_aliasing_sigma=None,
+                            preserve_range=True).astype('uint8')
+        self.image = ImageTk.PhotoImage(image=Image.fromarray(image))
 
     def image_panel(self):
         panel = ttk.Label(self.master, image=self.image)
@@ -240,9 +350,8 @@ class App(ttk.Frame):
         c = event.x // self.scale
         r = event.y // self.scale
         print(r, c)
-        self.images[self.iidx][r, c, :] = (0, 255, 0)
-        self.load_image()
-        self.img_panel.config(image=self.image)
+        # self.images[self.iidx][r, c, :] = (0, 255, 0)
+        # self.show_image()
 
     def key_pressed(self, event):
         print("key pressed:", event)
