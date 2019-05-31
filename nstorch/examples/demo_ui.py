@@ -143,6 +143,9 @@ class App(ttk.Frame):
         self.txt_out.grid(column=2, row=1, columnspan=3, rowspan=1,
                           sticky='wens', padx=5, pady=5)
 
+        #btn_quit = ttk.Button(window, text="quit", command=self.master.destroy)
+        #btn_quit.grid(column=2, row=2, sticky='wn', padx=5, pady=5)
+
         self.mics = sr.Microphone().list_microphone_names()
         self.device_index = 0
         self.com_mic = ttk.Combobox(window, values=self.mics)
