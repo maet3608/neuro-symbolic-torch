@@ -43,6 +43,13 @@ def say(text):
     Speak(text).start()
 
 
+def load_outofset():
+    for filename in ['fundus.jpg', 'mars.jpg']:
+        img = Image.open(filename)
+        img.thumbnail((IW, IH), Image.ANTIALIAS)
+        yield np.asarray(img)
+
+
 def speech2text(app):
     app.btn_mic.config(image=app.img_mic_on)
     with sr.Microphone(device_index=app.device_index) as source:
@@ -57,6 +64,9 @@ def speech2text(app):
             app.console('Could not recognize audio!')
         except sr.RequestError as e:
             app.console('Could not connect: {0}'.format(e))
+        except Exception as e:
+            say('I do not understand')
+            app.console('Error: {}'.format(e))
     app.btn_mic.config(image=app.img_mic_off)
 
 
@@ -81,10 +91,11 @@ class App(ttk.Frame):
         self.model = create_model()
         self.model.load_weights('best_weights.pt')
 
-        conf = {'samples': 50,
+        conf = {'samples': 30,
                 'pathologies': {'ha': [0, 1], 'ex': [0, 2], 'ma': [0, 5]}}
-        self.images = list(gen_images(conf, IH, IW))
-        self.iidx = 0
+        self.images = list(load_outofset())
+        self.images += list(gen_images(conf, IH, IW))
+        self.iidx = 2
 
         self.scale = 512 // IH  # image scale factor
         self.load_image()
@@ -153,9 +164,9 @@ class App(ttk.Frame):
     def which_topic(self):
         """Find topic/obj/pathology in text return normalized form"""
         c = self.contains
-        if c('haemorrhage', 'haemorhage', 'memori', 'hemorr', 'ha '):
+        if c('haemorrhage', 'haemorhage', 'memor', 'hemorr', 'ha '):
             return 'haemorrhage', 'ha'
-        if c('exudate', 'exit', 'ex '):
+        if c('exudate', 'exit', 'accident', 'ex '):
             return 'exudate', 'ex'
         if c('microaneurysm', 'micro', 'ma '):
             return 'microaneurysm', 'ma'
@@ -165,7 +176,9 @@ class App(ttk.Frame):
             return 'fovea', 'fo'
         if c('fundus', 'fu '):
             return 'fundus', 'fu'
-        if c('image', 'pic', 'picture', 'img '):
+        if c('vessel', 've '):
+            return 'vessels', 've'
+        if c('image', 'pic', 'picture', 'img ', 'annotation'):
             return 'image', None
         if c('program', 'application', 'demo'):
             return 'program', None
@@ -180,9 +193,9 @@ class App(ttk.Frame):
             return 'prev'
         if c('count', 'how many'):
             return 'count'
-        if c('show', 'mark', 'highlight', 'segment'):
+        if c('show', 'mark', 'highlight', 'segment', 'where'):
             return 'show'
-        if c('clear'):
+        if c('clear', 'delete', 'remove'):
             return 'clear'
         if c('grade', 'severity', 'level'):
             return 'grade'
@@ -277,13 +290,22 @@ class App(ttk.Frame):
             y = predict_one(self.model, fn, self.imgarr)
             yield topic, patho, int(y.item())
 
+    def check_is_fundus(self):
+        """Check if image has fovea and optic disc"""
+        fn = 'cnt_fo(seg_fo(x)) + cnt_od(seg_od(x))'
+        y = predict_one(self.model, fn, self.imgarr).item()
+        return y == 2
+
     def execute(self):
         """Execute action given in command field"""
         topic, patho = self.which_topic()
         loc, hem = self.which_location()
         action = self.which_action()
 
-        if action == 'quit' and topic == 'program':
+        if not self.check_is_fundus():
+            self.console("Won't fool me! That's not a fundus image!")
+            say('Ha, this is not a fundus image')
+        elif action == 'quit' and topic == 'program':
             say("As you wish my master")
             self.master.destroy()
         elif action == 'next' and topic == 'image':
@@ -336,7 +358,8 @@ class App(ttk.Frame):
             image[overlay.astype(bool)] = (100, 255, 100)
         image = skt.rescale(image, scale=self.scale, order=0,
                             multichannel=True,
-                            anti_aliasing=None, anti_aliasing_sigma=None,
+                            anti_aliasing=True,
+                            anti_aliasing_sigma=0.5,
                             preserve_range=True).astype('uint8')
         self.image = ImageTk.PhotoImage(image=Image.fromarray(image))
 
@@ -361,6 +384,7 @@ class App(ttk.Frame):
             self.prev_img()
 
 
-window = ThemedTk(theme='arc')  # arc,plastik,equilux,aqua,scidgrey
-app = App(window)
-app.mainloop()
+if __name__ == '__main__':
+    window = ThemedTk(theme='arc')  # arc,plastik,equilux,aqua,scidgrey
+    app = App(window)
+    app.mainloop()

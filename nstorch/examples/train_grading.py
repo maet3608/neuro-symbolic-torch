@@ -16,11 +16,11 @@ from nstorch.base import BuildBatch, Train, Predict
 from nstorch.losses import mse_loss, dice_loss
 from fundus_generator import gen_samples, C_PATHO, C_MASK
 
-IC, IH, IW = 3, 64, 64  # image dimensions
+IC, IH, IW = 3, 128, 128  # image dimensions
 EPOCHS = 1
 BATCHSIZE = 64
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-OBJS = ['fu', 'od', 'fo', 'ha', 'ex', 'ma']
+OBJS = ['ve','fu', 'od', 'fo', 'ha', 'ex', 'ma']
 CONFIG = {'samples': 100,
           'pathologies': {
               'ha': [0, 2],

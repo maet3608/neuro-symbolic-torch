@@ -7,17 +7,24 @@ import numpy as np
 import matplotlib.pyplot as plt
 import skimage.draw as skd
 
+from PIL import Image
+
 # pathology RGB colors
 C_PATHO = {
-    'fu': (205, 89, 47),  # fundus
-    'od': (200, 200, 0),  # optic disc
+    'fu': (205, 85, 50),  # fundus
+    've': (190, 80, 30),  # vessels
+    'od': (220, 200, 120),  # optic disc
     'fo': (180, 80, 30),  # Fovea
     'ma': (139, 69, 19),  # microaneurysm
-    'ex': (250, 250, 0),  # exudate
-    'ha': (140, 70, 20),  # haemorrhage
+    'ex': (230, 230, 0),  # exudate
+    'ha': (180, 70, 20),  # haemorrhage
 }
 
 C_MASK = 1
+
+
+def load_vessel_img():
+    return Image.open('vessels.png')
 
 
 def create_background(r, c):
@@ -55,7 +62,7 @@ def draw_opticdisc(img, rp, cp, s=0.2):
     return draw_circle(img, rp, cp, s, color=C_PATHO['od'])
 
 
-def draw_fovea(img, rp, cp, s=0.07):
+def draw_fovea(img, rp, cp, s=0.12):
     """Draw fovea"""
     return draw_circle(img, rp, cp, s, color=C_PATHO['fo'])
 
@@ -66,7 +73,7 @@ def draw_microaneurysm(img, rp, cp):
     return draw(img, rr, cc, C_PATHO['ma'])
 
 
-def draw_haemorrhage(img, inmsk, rp, cp, srr=0.04, src=0.06):
+def draw_haemorrhage(img, inmsk, rp, cp, srr=0.03, src=0.05):
     """Draw haemorrhage"""
     r, c, _ = img.shape
     rra, cra = int(r * srr), int(c * src)
@@ -76,7 +83,7 @@ def draw_haemorrhage(img, inmsk, rp, cp, srr=0.04, src=0.06):
     return draw(img, rr, cc, C_PATHO['ha'])
 
 
-def draw_exudate(img, inmsk, rp, cp, srr=0.1, src=0.07, d=0.3):
+def draw_exudate(img, inmsk, rp, cp, srr=0.1, src=0.07, d=0.1):
     """Draw exudate: random yellow pixels in elliptic area with density d"""
     r, c, _ = img.shape
     rra, cra = int(r * srr), int(c * src)
@@ -110,6 +117,14 @@ def draw_pathology(ptype, img, inmsk, rp, cp, sr, sc):
     raise ValueError('Unknown pathology type:' + ptype)
 
 
+def add_vessels(fundus_img, fundus_msk, vessel_img, angle):
+    r, c = fundus_msk.shape
+    vessel_img.thumbnail((c, r), Image.ANTIALIAS)
+    vessel_img = vessel_img.rotate(angle)
+    vmask = np.asarray(vessel_img)
+    fundus_img[(vmask * fundus_msk).astype(bool), :] = C_PATHO['ve']
+
+
 def hemifield(mask, isupper, h=0.5):
     """ Filter input mask with upper or lower hemifield at row (h)"""
     r, _ = mask.shape
@@ -136,16 +151,21 @@ def calc_grade(samples):
 
 
 def gen_images(config, ir, ic):
+    vessel_img = load_vessel_img()
+
     for _ in range(config['samples']):
         img = create_background(ir, ic)
 
-        s = rnd.uniform(0.9, 1.1)
+        s = rnd.uniform(0.95, 1.05)
         img, fundus_msk = draw_fundus(img, ir // 2, ic // 2, s)
 
-        sr, sc = rnd.uniform(0.4, 0.6), rnd.uniform(0.2, 0.3)
+        angle = rnd.uniform(-10, 10)
+        add_vessels(img, fundus_msk, vessel_img, angle)
+
+        sr, sc = rnd.uniform(0.4, 0.5), rnd.uniform(0.3, 0.4)
         img, fovea_msk = draw_fovea(img, int(ir * sr), int(ic * sc))
 
-        sr, sc = rnd.uniform(0.4, 0.6), rnd.uniform(0.7, 0.8)
+        sr, sc = rnd.uniform(0.4, 0.45), rnd.uniform(0.85, 0.9)
         img, opticdisc_msk = draw_opticdisc(img, int(ir * sr), int(ic * sc))
 
         inmsk = fundus_msk - fovea_msk - opticdisc_msk
@@ -160,16 +180,22 @@ def gen_images(config, ir, ic):
 
 
 def gen_samples(config, ir, ic):
+    vessel_img = load_vessel_img()
+
     for _ in range(config['samples']):
         samples = []
 
         # draw fundus
         img = create_background(ir, ic)
-        s = rnd.uniform(0.9, 1.1)
+        s = rnd.uniform(0.95, 1.05)
         img, fundus_msk = draw_fundus(img, ir // 2, ic // 2, s)
 
+        # add vessels to fundus
+        angle = rnd.uniform(-10, 10)
+        add_vessels(img, fundus_msk, vessel_img, angle)
+
         # draw fovea
-        sr, sc = rnd.uniform(0.4, 0.6), rnd.uniform(0.2, 0.3)
+        sr, sc = rnd.uniform(0.4, 0.5), rnd.uniform(0.3, 0.4)
         rp, cp = int(ir * sr), int(ic * sc)
         img, fovea_msk = draw_fovea(img, rp, cp)
         fovea_imks = np.zeros_like(fundus_msk)
@@ -230,7 +256,7 @@ if __name__ == '__main__':
     from nutsml import ViewImage
 
     ir, ic = 64, 64
-    config = {'samples': 5,
+    config = {'samples': 20,
               'pathologies': {'ha': [1, 1], 'ex': [2, 2], 'ma': [3, 3]}}
     gen_images(config, ir, ic) >> ViewImage(None, pause=10) >> Consume()
 
