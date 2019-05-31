@@ -68,7 +68,7 @@ class App(ttk.Frame):
         window.title("Neuro-symbolic DR grading")
         window.columnconfigure(0, weight=1)
         window.rowconfigure(0, weight=1)
-        # window.config(background='white')
+        window.config(background='white')
 
         # icons
         self.img_run = ImageTk.PhotoImage(file='run.gif')
@@ -82,7 +82,7 @@ class App(ttk.Frame):
         self.model.load_weights('best_weights.pt')
 
         conf = {'samples': 50,
-                'pathologies': {'ha': [0, 1], 'ex': [0, 1], 'ma': [0, 5]}}
+                'pathologies': {'ha': [0, 1], 'ex': [0, 2], 'ma': [0, 5]}}
         self.images = list(gen_images(conf, IH, IW))
         self.iidx = 0
 
@@ -106,11 +106,11 @@ class App(ttk.Frame):
                            pady=5)
 
         btn_run = tk.Button(window, image=self.img_run, borderwidth=0,
-                            command=self.execute)
+                            bg="white", command=self.execute)
         btn_run.grid(column=3, row=0, sticky='en', padx=5, pady=5)
 
         btn_mic = tk.Button(window, image=self.img_mic_off, borderwidth=0,
-                            command=self.listen_mic)
+                            bg="white", command=self.listen_mic)
         btn_mic.on = False
         btn_mic.grid(column=4, row=0, sticky='en', padx=5, pady=5)
         self.btn_mic = btn_mic
@@ -361,6 +361,6 @@ class App(ttk.Frame):
             self.prev_img()
 
 
-window = ThemedTk(theme='plastik')  # arc,plastik,equilux,aqua,scidgrey
+window = ThemedTk(theme='arc')  # arc,plastik,equilux,aqua,scidgrey
 app = App(window)
 app.mainloop()
