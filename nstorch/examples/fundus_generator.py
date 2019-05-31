@@ -83,7 +83,7 @@ def draw_haemorrhage(img, inmsk, rp, cp, srr=0.03, src=0.05):
     return draw(img, rr, cc, C_PATHO['ha'])
 
 
-def draw_exudate(img, inmsk, rp, cp, srr=0.1, src=0.07, d=0.1):
+def draw_exudate(img, inmsk, rp, cp, srr=0.1, src=0.07, d=0.2):
     """Draw exudate: random yellow pixels in elliptic area with density d"""
     r, c, _ = img.shape
     rra, cra = int(r * srr), int(c * src)
@@ -159,14 +159,14 @@ def gen_images(config, ir, ic):
         s = rnd.uniform(0.95, 1.05)
         img, fundus_msk = draw_fundus(img, ir // 2, ic // 2, s)
 
+        sr, sc = rnd.uniform(0.4, 0.45), rnd.uniform(0.85, 0.9)
+        img, opticdisc_msk = draw_opticdisc(img, int(ir * sr), int(ic * sc))
+
         angle = rnd.uniform(-10, 10)
         add_vessels(img, fundus_msk, vessel_img, angle)
 
         sr, sc = rnd.uniform(0.4, 0.5), rnd.uniform(0.3, 0.4)
         img, fovea_msk = draw_fovea(img, int(ir * sr), int(ic * sc))
-
-        sr, sc = rnd.uniform(0.4, 0.45), rnd.uniform(0.85, 0.9)
-        img, opticdisc_msk = draw_opticdisc(img, int(ir * sr), int(ic * sc))
 
         inmsk = fundus_msk - fovea_msk - opticdisc_msk
 

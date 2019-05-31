@@ -44,7 +44,7 @@ def say(text):
 
 
 def load_outofset():
-    for filename in ['fundus.jpg', 'mars.jpg']:
+    for filename in ['mars.jpg', 'fundus.jpg' ]:
         img = Image.open(filename)
         img.thumbnail((IW, IH), Image.ANTIALIAS)
         yield np.asarray(img)
@@ -95,7 +95,7 @@ class App(ttk.Frame):
                 'pathologies': {'ha': [0, 1], 'ex': [0, 2], 'ma': [0, 5]}}
         self.images = list(load_outofset())
         self.images += list(gen_images(conf, IH, IW))
-        self.iidx = 2
+        self.iidx = 1
 
         self.scale = 512 // IH  # image scale factor
         self.load_image()

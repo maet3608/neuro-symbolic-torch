@@ -20,7 +20,7 @@ IC, IH, IW = 3, 128, 128  # image dimensions
 EPOCHS = 1
 BATCHSIZE = 64
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-OBJS = ['ve','fu', 'od', 'fo', 'ha', 'ex', 'ma']
+OBJS = ['ve', 'fu', 'od', 'fo', 'ha', 'ex', 'ma']
 CONFIG = {'samples': 100,
           'pathologies': {
               'ha': [0, 2],
@@ -78,12 +78,12 @@ class Count(nn.Module):
 
     def forward(self, x):
         from skimage.feature import blob_log
-        sigmas = {'cnt_ma': 1, 'cnt_fu':20}
-        s = sigmas.get(self.name, 3)
+        sigmas = {'cnt_ma': (1, 2), 'cnt_fu': (50, 51), 'cnt_od': (20, 21)}
+        smin, smax = sigmas.get(self.name, (3, 20))
         counts = []
         for mask in x:
             mask = np.squeeze(mask.cpu().detach().numpy())
-            blobs = blob_log(mask, min_sigma=s, max_sigma=20, threshold=.1)
+            blobs = blob_log(mask, min_sigma=smin, max_sigma=smax, threshold=.1)
             cnt = len(blobs)
             counts.append(cnt)
         ret = torch.FloatTensor(counts).to(DEVICE)
