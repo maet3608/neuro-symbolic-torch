@@ -190,6 +190,14 @@ def gen_samples(config, ir, ic):
         s = rnd.uniform(0.95, 1.05)
         img, fundus_msk = draw_fundus(img, ir // 2, ic // 2, s)
 
+        # draw optic disc
+        sr, sc = rnd.uniform(0.4, 0.6), rnd.uniform(0.7, 0.8)
+        rp, cp = int(ir * sr), int(ic * sc)
+        img, od_msk = draw_opticdisc(img, rp, cp)
+        od_imks = np.zeros_like(fundus_msk)
+        od_imks[rp, cp] = C_MASK
+        samples.append(('od', 1, od_msk, od_imks))
+
         # add vessels to fundus
         angle = rnd.uniform(-10, 10)
         add_vessels(img, fundus_msk, vessel_img, angle)
@@ -202,13 +210,7 @@ def gen_samples(config, ir, ic):
         fovea_imks[rp, cp] = C_MASK
         samples.append(('fo', 1, fovea_msk, fovea_imks))
 
-        # draw optic disc
-        sr, sc = rnd.uniform(0.4, 0.6), rnd.uniform(0.7, 0.8)
-        rp, cp = int(ir * sr), int(ic * sc)
-        img, od_msk = draw_opticdisc(img, rp, cp)
-        od_imks = np.zeros_like(fundus_msk)
-        od_imks[rp, cp] = C_MASK
-        samples.append(('od', 1, od_msk, od_imks))
+
 
         inmsk = fundus_msk - fovea_msk - od_msk
 
