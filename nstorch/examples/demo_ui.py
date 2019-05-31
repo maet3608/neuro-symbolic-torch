@@ -44,7 +44,7 @@ def say(text):
 
 
 def load_outofset():
-    for filename in ['mars.jpg', 'fundus.jpg' ]:
+    for filename in ['mars.jpg', 'fundus.jpg']:
         img = Image.open(filename)
         img.thumbnail((IW, IH), Image.ANTIALIAS)
         yield np.asarray(img)
@@ -70,6 +70,15 @@ def speech2text(app):
     app.btn_mic.config(image=app.img_mic_off)
 
 
+def center_window(window):
+    w = window.winfo_screenwidth()
+    h = window.winfo_screenheight()
+    size = tuple(int(pos) for pos in window.geometry().split('+')[0].split('x'))
+    x = w / 2 - size[0] / 2
+    y = h / 2 - size[1] / 2
+    window.geometry("%dx%d+%d+%d" % (size + (x, y)))
+
+
 class App(ttk.Frame):
     """The main Application"""
 
@@ -78,7 +87,8 @@ class App(ttk.Frame):
         window.title("Neuro-symbolic DR grading")
         window.columnconfigure(0, weight=1)
         window.rowconfigure(0, weight=1)
-        window.config(background='white')
+        window.config(background='black')
+        window.geometry("+%d+%d" % (50,50))
 
         # icons
         self.img_run = ImageTk.PhotoImage(file='run.gif')
@@ -117,17 +127,18 @@ class App(ttk.Frame):
                            pady=5)
 
         btn_run = tk.Button(window, image=self.img_run, borderwidth=0,
-                            bg="white", command=self.execute)
+                            command=self.execute)
         btn_run.grid(column=3, row=0, sticky='en', padx=5, pady=5)
 
         btn_mic = tk.Button(window, image=self.img_mic_off, borderwidth=0,
-                            bg="white", command=self.listen_mic)
+                            command=self.listen_mic)
         btn_mic.on = False
         btn_mic.grid(column=4, row=0, sticky='en', padx=5, pady=5)
         self.btn_mic = btn_mic
 
-        self.txt_out = ScrolledText(window, state='disabled',
-                                    width=36, height=19)
+        self.txt_out = tk.Text(window, state='disabled',
+                               bg='#414141', fg='#A6A6A6',
+                               width=36, height=19)
         self.txt_out.config(font=FONT)
         self.txt_out.grid(column=2, row=1, columnspan=3, rowspan=1,
                           sticky='wens', padx=5, pady=5)
@@ -141,6 +152,7 @@ class App(ttk.Frame):
                           sticky='we', padx=5, pady=5)
 
         # self.window.bind("<Key>", self.key_pressed)
+
 
     def console(self, text, append=False):
         """Write text to console"""
@@ -385,6 +397,8 @@ class App(ttk.Frame):
 
 
 if __name__ == '__main__':
-    window = ThemedTk(theme='arc')  # arc,plastik,equilux,aqua,scidgrey
+    window = ThemedTk(theme='equilux')  # arc,plastik,equilux,aqua,scidgrey
+    # window.wm_attributes('-fullscreen', True)
+    #window.overrideredirect(1)  # no title bar
     app = App(window)
     app.mainloop()
