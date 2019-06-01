@@ -24,6 +24,8 @@ from tkinter import ttk  # Normal Tkinter.* widgets are not themed!
 from ttkthemes import ThemedTk
 
 FONT = 'Calabri', 16
+THEME = 'arc' # arc,plastik,equilux,aqua,scidgrey
+BG = 'white'
 
 
 class Speak(Thread):
@@ -90,7 +92,7 @@ class App(ttk.Frame):
         window.title("Neuro-symbolic DR demo")
         window.rowconfigure(1, weight=1)
         window.columnconfigure(2, weight=1)
-        window.config(background='black')
+        window.config(background=BG)
         window.geometry("+%d+%d" % (100, 100))
 
         # icons
@@ -141,7 +143,7 @@ class App(ttk.Frame):
         self.btn_mic = btn_mic
 
         self.txt_out = tk.Text(window, state='disabled',
-                               bg='#414141', fg='#A6A6A6',
+                               #bg='#414141', fg='#A6A6A6',  # equilux
                                width=36, height=19)
         self.txt_out.config(font=FONT)
         self.txt_out.grid(column=2, row=1, columnspan=3, rowspan=1,
@@ -280,7 +282,7 @@ class App(ttk.Frame):
             elif patho == 've':
                 say('these are the vessels').join()
             else:
-                self.console('- %d : %s\n' % (n, topic), True)
+                self.console('  %d : %s\n' % (n, topic), True)
                 if n > 1:
                     say('and there are %d %ss here' % (n, topic)).join()
                 else:
@@ -422,7 +424,7 @@ class App(ttk.Frame):
 
 
 if __name__ == '__main__':
-    window = ThemedTk(theme='equilux')  # arc,plastik,equilux,aqua,scidgrey
+    window = ThemedTk(theme=THEME)
     # window.wm_attributes('-fullscreen', True)
     # window.overrideredirect(1)  # no title bar
     app = App(window)
