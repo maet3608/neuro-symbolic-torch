@@ -87,10 +87,10 @@ class App(ttk.Frame):
 
     def __init__(self, window):
         ttk.Frame.__init__(self, master=window)
-        window.title("Neuro-symbolic DR grading")
-        window.columnconfigure(0, weight=1)
-        window.rowconfigure(0, weight=1)
-        window.config(background='gray')
+        window.title("Neuro-symbolic DR demo")
+        window.rowconfigure(1, weight=1)
+        window.columnconfigure(2, weight=1)
+        window.config(background='black')
         window.geometry("+%d+%d" % (100, 100))
 
         # icons
@@ -110,7 +110,8 @@ class App(ttk.Frame):
         self.images += list(gen_images(conf, IH, IW))
         self.iidx = 1
 
-        self.scale = 512 // IH  # image scale factor
+        self.scale = 1 * 512 // IH  # image scale factor
+        self.anti_aliasing = 0  # 0.5
         self.load_image()
 
         self.img_panel = self.image_panel()
@@ -118,10 +119,10 @@ class App(ttk.Frame):
                             sticky='wn', padx=5, pady=5)
 
         btn_prev = ttk.Button(window, text="<<", command=self.prev_img)
-        btn_prev.grid(column=0, row=2, sticky='en', padx=5, pady=5)
+        btn_prev.grid(column=0, row=2, sticky='ewn', padx=5, pady=5)
 
         btn_next = ttk.Button(window, text=">>", command=self.next_img)
-        btn_next.grid(column=1, row=2, sticky='wn', padx=5, pady=5)
+        btn_next.grid(column=1, row=2, sticky='ewn', padx=5, pady=5)
 
         self.ent_cmnd = ttk.Entry(window, width=36)
         self.ent_cmnd.bind('<Return>', lambda e: self.execute())
@@ -270,7 +271,7 @@ class App(ttk.Frame):
         pathos = [('fundus', 'fu'), ('optic disc', 'od'), ('fovea', 'fo'),
                   ('vessels', 've'), ('haemorrhage', 'ha'),
                   ('microaneurysm', 'ma'), ('exudate', 'ex')]
-        self.console('Found:\n')
+        self.console('pathologies found\n')
         for topic, patho in pathos:
             n = count('cnt_{0}(seg_{0}(x))'.format(patho))
             if not n: continue
@@ -279,7 +280,7 @@ class App(ttk.Frame):
             elif patho == 've':
                 say('these are the vessels').join()
             else:
-                self.console('%d : %s\n' % (n, topic), True)
+                self.console('- %d : %s\n' % (n, topic), True)
                 if n > 1:
                     say('and there are %d %ss here' % (n, topic)).join()
                 else:
@@ -393,11 +394,11 @@ class App(ttk.Frame):
         if overlay is not None:
             image = image.copy() / 3
             mask = np.squeeze(overlay).astype(bool)
-            image[mask] = (255, 255, 0)
+            image[mask] = (255,255,0)  #(176, 244, 66)
         image = skt.rescale(image, scale=self.scale, order=0,
                             multichannel=True,
                             anti_aliasing=True,
-                            anti_aliasing_sigma=0.5,
+                            anti_aliasing_sigma=self.anti_aliasing,
                             preserve_range=True).astype('uint8')
         self.image = ImageTk.PhotoImage(image=Image.fromarray(image))
 
