@@ -4,9 +4,10 @@ Analyzes synthetic fundus images with simulated diabetic retinopathy
 and performs visual question answering with speech recognition and
 synthesis.
 """
+import time
+import pythoncom
 
 import numpy as np
-import pythoncom
 import tkinter as tk
 import skimage.transform as skt
 import speech_recognition as sr
@@ -40,7 +41,9 @@ class Speak(Thread):
 
 def say(text):
     """Speak the given text in background thread"""
-    Speak(text).start()
+    speak = Speak(text)
+    speak.start()
+    return speak
 
 
 def load_outofset():
@@ -87,8 +90,8 @@ class App(ttk.Frame):
         window.title("Neuro-symbolic DR grading")
         window.columnconfigure(0, weight=1)
         window.rowconfigure(0, weight=1)
-        window.config(background='black')
-        window.geometry("+%d+%d" % (50,50))
+        window.config(background='gray')
+        window.geometry("+%d+%d" % (100, 100))
 
         # icons
         self.img_run = ImageTk.PhotoImage(file='run.gif')
@@ -143,8 +146,9 @@ class App(ttk.Frame):
         self.txt_out.grid(column=2, row=1, columnspan=3, rowspan=1,
                           sticky='wens', padx=5, pady=5)
 
-        #btn_quit = ttk.Button(window, text="quit", command=self.master.destroy)
-        #btn_quit.grid(column=2, row=2, sticky='wn', padx=5, pady=5)
+        # btn_quit = ttk.Button(window, text="quit",
+        # command=self.master.destroy)
+        # btn_quit.grid(column=2, row=2, sticky='wn', padx=5, pady=5)
 
         self.mics = sr.Microphone().list_microphone_names()
         self.device_index = 0
@@ -155,7 +159,6 @@ class App(ttk.Frame):
                           sticky='we', padx=5, pady=5)
 
         # self.window.bind("<Key>", self.key_pressed)
-
 
     def console(self, text, append=False):
         """Write text to console"""
@@ -192,7 +195,7 @@ class App(ttk.Frame):
         if c('fundus', 'fu '):
             return 'fundus', 'fu'
         if c('vessel', 've '):
-            return 'vessels', 've'
+            return 'blood vessels', 've'
         if c('image', 'pic', 'picture', 'img ', 'annotation'):
             return 'image', None
         if c('program', 'application', 'demo'):
@@ -214,6 +217,8 @@ class App(ttk.Frame):
             return 'clear'
         if c('grade', 'severity', 'level'):
             return 'grade'
+        if c('explain', 'what', 'describe'):
+            return 'explain'
         if c('end', 'quit', 'finish'):
             return 'quit'
         return 'show'
@@ -221,9 +226,9 @@ class App(ttk.Frame):
     def which_location(self):
         """Find location in text and return normalized form"""
         c = self.contains
-        if c('upper', 'up ') and ('hemi', 'half'):
+        if c('upper', 'up ') and ('hemi', 'half', 'field'):
             return 'upper hemifield', 'up'
-        if c('lower', 'lo ') and ('hemi', 'half'):
+        if c('lower', 'lo ') and ('hemi', 'half', 'field'):
             return 'lower hemifield', 'lo'
         return None, None
 
@@ -250,7 +255,6 @@ class App(ttk.Frame):
         else:
             fp = 'seg_{0}(x)'.format(patho)
         mask = predict_one(self.model, fp, self.imgarr)
-        mask = np.squeeze(mask)
         self.load_image(overlay=mask)
         self.show_image(load=False)
         answer = 'Showing ' + topic
@@ -260,16 +264,32 @@ class App(ttk.Frame):
         self.console(answer)
         self.console('\n\nFP: ' + fp, True)
 
-    def action_what(self, topic, patho):
-        fp = 'seg_{0}(x)'.format(patho)
-        mask = predict_one(self.model, fp, self.imgarr)
-        mask = np.squeeze(mask)
-        self.load_image(overlay=mask)
-        self.show_image(load=False)
-        answer = 'Showing ' + topic
-        say(answer)
-        self.console(answer)
-        self.console('\n\nFP: ' + fp, True)
+    def action_explain(self):
+        segment = lambda fp: predict_one(self.model, fp, self.imgarr)
+        count = lambda fp: round(segment(fp).item())
+        pathos = [('fundus', 'fu'), ('optic disc', 'od'), ('fovea', 'fo'),
+                  ('vessels', 've'), ('haemorrhage', 'ha'),
+                  ('microaneurysm', 'ma'), ('exudate', 'ex')]
+        self.console('Found:\n')
+        for topic, patho in pathos:
+            n = count('cnt_{0}(seg_{0}(x))'.format(patho))
+            if not n: continue
+            if patho in ['fu', 'od', 'fo']:
+                say('The %s is here' % topic).join()
+            elif patho == 've':
+                say('these are the vessels').join()
+            else:
+                self.console('%d : %s\n' % (n, topic), True)
+                if n > 1:
+                    say('and there are %d %ss here' % (n, topic)).join()
+                else:
+                    say('and there is one %s here' % topic).join()
+            self.load_image(overlay=segment('seg_%s(x)' % patho))
+            self.show_image(load=False)
+            self.update()
+            time.sleep(2)
+        say('that is all')
+        self.show_image()
 
     def action_grade(self):
         grade = lambda fp: predict_one(self.model, fp, self.imgarr).item()
@@ -317,10 +337,7 @@ class App(ttk.Frame):
         loc, hem = self.which_location()
         action = self.which_action()
 
-        if not self.check_is_fundus():
-            self.console("Won't fool me! That's not a fundus image!")
-            say('Ha, this is not a fundus image')
-        elif action == 'quit' and topic == 'program':
+        if action == 'quit' and topic == 'program':
             say("As you wish my master")
             self.master.destroy()
         elif action == 'next' and topic == 'image':
@@ -332,12 +349,17 @@ class App(ttk.Frame):
         elif action == 'prev' and topic == 'image':
             say("Okay previous image")
             self.prev_img()
+        elif not self.check_is_fundus():
+            self.console("Won't fool me! That's not a fundus image!")
+            say('Ha, this is not a fundus image')
         elif action == 'count':
             self.action_count(topic, patho, loc, hem)
         elif action == 'show':
             self.action_show(topic, patho, loc, hem)
         elif action == 'grade':
             self.action_grade()
+        elif action == 'explain':
+            self.action_explain()
         else:
             self.console('Unknown command!')
             say(choice(['What', 'Pardon me', 'Pardon', 'I do not understand']))
@@ -370,7 +392,8 @@ class App(ttk.Frame):
         image = self.imgarr
         if overlay is not None:
             image = image.copy() / 3
-            image[overlay.astype(bool)] = (100, 255, 100)
+            mask = np.squeeze(overlay).astype(bool)
+            image[mask] = (255, 255, 0)
         image = skt.rescale(image, scale=self.scale, order=0,
                             multichannel=True,
                             anti_aliasing=True,
@@ -402,6 +425,6 @@ class App(ttk.Frame):
 if __name__ == '__main__':
     window = ThemedTk(theme='equilux')  # arc,plastik,equilux,aqua,scidgrey
     # window.wm_attributes('-fullscreen', True)
-    #window.overrideredirect(1)  # no title bar
+    # window.overrideredirect(1)  # no title bar
     app = App(window)
     app.mainloop()
