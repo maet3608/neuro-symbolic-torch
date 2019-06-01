@@ -116,7 +116,7 @@ class App(ttk.Frame):
 
         self.img_panel = self.image_panel()
         self.img_panel.grid(column=0, row=0, columnspan=2, rowspan=2,
-                            sticky='wn', padx=5, pady=5)
+                            sticky='wens', padx=5, pady=5)
 
         btn_prev = ttk.Button(window, text="<<", command=self.prev_img)
         btn_prev.grid(column=0, row=2, sticky='ewn', padx=5, pady=5)
@@ -147,16 +147,16 @@ class App(ttk.Frame):
         self.txt_out.grid(column=2, row=1, columnspan=3, rowspan=1,
                           sticky='wens', padx=5, pady=5)
 
-        # btn_quit = ttk.Button(window, text="quit",
-        # command=self.master.destroy)
-        # btn_quit.grid(column=2, row=2, sticky='wn', padx=5, pady=5)
+        btn_quit = ttk.Button(window, text="quit", command=self.master.destroy)
+        btn_quit.grid(column=3, row=2, columnspan=2, sticky='wen', padx=5,
+                      pady=5)
 
         self.mics = sr.Microphone().list_microphone_names()
         self.device_index = 0
         self.com_mic = ttk.Combobox(window, values=self.mics)
         self.com_mic.bind('<<ComboboxSelected>>', self.select_mic)
         self.com_mic.current(self.device_index)
-        self.com_mic.grid(column=2, row=2, columnspan=3,
+        self.com_mic.grid(column=2, row=2, columnspan=1,
                           sticky='we', padx=5, pady=5)
 
         # self.window.bind("<Key>", self.key_pressed)
@@ -394,7 +394,7 @@ class App(ttk.Frame):
         if overlay is not None:
             image = image.copy() / 3
             mask = np.squeeze(overlay).astype(bool)
-            image[mask] = (255,255,0)  #(176, 244, 66)
+            image[mask] = (255, 255, 0)
         image = skt.rescale(image, scale=self.scale, order=0,
                             multichannel=True,
                             anti_aliasing=True,
@@ -403,17 +403,15 @@ class App(ttk.Frame):
         self.image = ImageTk.PhotoImage(image=Image.fromarray(image))
 
     def image_panel(self):
-        panel = ttk.Label(self.master, image=self.image)
-        panel.bind('<ButtonPress-1>', self.img_click)
+        panel = tk.Label(self.master, image=self.image, bg='black')
         panel.place(x=0, y=0)
+        panel.bind('<ButtonPress-1>', self.image_click)
         return panel
 
-    def img_click(self, event):
+    def image_click(self, event):
         c = event.x // self.scale
         r = event.y // self.scale
-        print(r, c)
-        # self.images[self.iidx][r, c, :] = (0, 255, 0)
-        # self.show_image()
+        # print(r,c)
 
     def key_pressed(self, event):
         print("key pressed:", event)

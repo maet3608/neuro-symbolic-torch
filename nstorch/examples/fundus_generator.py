@@ -11,11 +11,6 @@ from PIL import Image
 
 # pathology RGB colors
 C_PATHO = {
-    # 'fu': (228, 111, 84),  # fundus
-    # 've': (214, 71, 62),  # vessels
-    # 'od': (254, 198, 134),  # optic disc
-    # 'fo': (184, 59, 34),  # Fovea
-
      'fu': (205, 85, 50),  # fundus
      've': (190, 80, 30),  # vessels
      'od': (220, 200, 120),  # optic disc
