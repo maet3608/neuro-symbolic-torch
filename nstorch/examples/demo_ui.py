@@ -23,9 +23,20 @@ from train_grading import create_model, predict_one, IH, IW
 from tkinter import ttk  # Normal Tkinter.* widgets are not themed!
 from ttkthemes import ThemedTk
 
-FONT = 'Calabri', 16
-THEME = 'arc' # arc,plastik,equilux,aqua,scidgrey
-BG = 'white'
+FONT = 'Calabri'
+THEME = 'equilux'  # arc,plastik,equilux,aqua,scidgrey
+BG = 'black'
+
+RULES = """\n
+Grading guide:
+--------------------------------------------------
+- healthy:    no pathologies
+- mild:         one microaneurysm
+- moderate: microaneurysm > 2 in
+                  upper xor lower hemifield
+- severe:    any exudates or haemorrhages
+"""
+
 
 
 class Speak(Thread):
@@ -112,7 +123,7 @@ class App(ttk.Frame):
         self.images += list(gen_images(conf, IH, IW))
         self.iidx = 1
 
-        self.scale = 1 * 512 // IH  # image scale factor
+        self.scale = 512 // IH  # image scale factor
         self.anti_aliasing = 0  # 0.5
         self.load_image()
 
@@ -128,7 +139,7 @@ class App(ttk.Frame):
 
         self.ent_cmnd = ttk.Entry(window, width=36)
         self.ent_cmnd.bind('<Return>', lambda e: self.execute())
-        self.ent_cmnd.config(font=FONT)
+        self.ent_cmnd.config(font=(FONT,16))
         self.ent_cmnd.grid(column=2, row=0, sticky='wens', padx=5,
                            pady=5)
 
@@ -143,9 +154,9 @@ class App(ttk.Frame):
         self.btn_mic = btn_mic
 
         self.txt_out = tk.Text(window, state='disabled',
-                               #bg='#414141', fg='#A6A6A6',  # equilux
+                               bg='#414141', fg='#A6A6A6',  # equilux
                                width=36, height=19)
-        self.txt_out.config(font=FONT)
+        self.txt_out.config(font=(FONT,20))
         self.txt_out.grid(column=2, row=1, columnspan=3, rowspan=1,
                           sticky='wens', padx=5, pady=5)
 
@@ -160,8 +171,6 @@ class App(ttk.Frame):
         self.com_mic.current(self.device_index)
         self.com_mic.grid(column=2, row=2, columnspan=1,
                           sticky='we', padx=5, pady=5)
-
-        # self.window.bind("<Key>", self.key_pressed)
 
     def console(self, text, append=False):
         """Write text to console"""
@@ -319,6 +328,7 @@ class App(ttk.Frame):
                 else:
                     say('This is a case of %s diabetic retinopathy' % g)
                 break
+        self.console(RULES, True)
 
     def count_pathologies(self):
         pathos = [('haemorrhage', 'ha'), ('microaneurysm', 'ma'),
@@ -408,12 +418,24 @@ class App(ttk.Frame):
         panel = tk.Label(self.master, image=self.image, bg='black')
         panel.place(x=0, y=0)
         panel.bind('<ButtonPress-1>', self.image_click)
+        panel.bind('<MouseWheel>', self.wheel)
         return panel
 
     def image_click(self, event):
         c = event.x // self.scale
         r = event.y // self.scale
         # print(r,c)
+
+    def wheel(self, event):
+        if event.num == 5 or event.delta == -120:  # scroll down
+            self.scale = max(1.0, self.scale / 1.5)
+        elif event.num == 4 or event.delta == 120:  # scroll up
+            self.scale = min(10.0, self.scale * 1.5)
+        else:
+            return
+        self.txt_out.config(font=(FONT, int(self.scale * 5)))
+        self.show_image()
+
 
     def key_pressed(self, event):
         print("key pressed:", event)
