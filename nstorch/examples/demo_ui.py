@@ -27,8 +27,9 @@ FONT = 'Calabri'
 THEME = 'equilux'  # arc,plastik,equilux,aqua,scidgrey
 BG = 'black'
 
-RULES = """\n
-Grading guide:
+
+RULES = """\n\n
+Grading guide
 --------------------------------------------------
 - healthy:    no pathologies
 - mild:         one microaneurysm
@@ -73,11 +74,11 @@ def speech2text(app):
             app.console('listening...')
             audio = app.recognizer.listen(source)
             app.recognized = app.recognizer.recognize_google(audio)
-            app.cmdline(app.recognized)
+            app.cmdline(app.recognized.lower())
             app.console('')
             app.execute()
         except sr.UnknownValueError:
-            app.console('Could not recognize audio!')
+            app.console('No audio! Mic working?')
         except sr.RequestError as e:
             app.console('Could not connect: {0}'.format(e))
         except Exception as e:
@@ -238,10 +239,10 @@ class App(ttk.Frame):
     def which_location(self):
         """Find location in text and return normalized form"""
         c = self.contains
-        if c('upper', 'up ') and ('hemi', 'half', 'field'):
-            return 'upper hemifield', 'up'
-        if c('lower', 'lo ') and ('hemi', 'half', 'field'):
-            return 'lower hemifield', 'lo'
+        if c('upper', 'up ', 'superior') and ('hemi', 'half', 'field'):
+            return 'superior hemifield', 'up'
+        if c('lower', 'lo ', 'inferior') and ('hemi', 'half', 'field'):
+            return 'inferior hemifield', 'lo'
         return None, None
 
     def action_count(self, topic, patho, loc, hem):
@@ -363,7 +364,7 @@ class App(ttk.Frame):
             say("Okay previous image")
             self.prev_img()
         elif not self.check_is_fundus():
-            self.console("Won't fool me! That's not a fundus image!")
+            self.console("Not a fundus image!")
             say('Ha, this is not a fundus image')
         elif action == 'count':
             self.action_count(topic, patho, loc, hem)
@@ -375,7 +376,7 @@ class App(ttk.Frame):
             self.action_explain()
         else:
             self.console('Unknown command!')
-            say(choice(['What', 'Pardon me', 'Pardon', 'I do not understand']))
+            say(choice(['What', 'Hu', 'Pardon', 'I do not understand']))
 
     def listen_mic(self):
         thread = Thread(target=speech2text, args=(self,))
