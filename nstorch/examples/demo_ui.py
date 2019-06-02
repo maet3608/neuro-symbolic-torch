@@ -27,7 +27,6 @@ FONT = 'Calabri'
 THEME = 'equilux'  # arc,plastik,equilux,aqua,scidgrey
 BG = 'black'
 
-
 RULES = """\n\n
 Grading guide
 --------------------------------------------------
@@ -37,7 +36,6 @@ Grading guide
                   upper xor lower hemifield
 - severe:    any exudates or haemorrhages
 """
-
 
 
 class Speak(Thread):
@@ -130,7 +128,7 @@ class App(ttk.Frame):
 
         self.img_panel = self.image_panel()
         self.img_panel.grid(column=0, row=0, columnspan=2, rowspan=2,
-                            sticky='wens', padx=5, pady=5)
+                            sticky='wens', padx=50, pady=5)
 
         btn_prev = ttk.Button(window, text="<<", command=self.prev_img)
         btn_prev.grid(column=0, row=2, sticky='ewn', padx=5, pady=5)
@@ -140,7 +138,7 @@ class App(ttk.Frame):
 
         self.ent_cmnd = ttk.Entry(window, width=36)
         self.ent_cmnd.bind('<Return>', lambda e: self.execute())
-        self.ent_cmnd.config(font=(FONT,16))
+        self.ent_cmnd.config(font=(FONT, 16))
         self.ent_cmnd.grid(column=2, row=0, sticky='wens', padx=5,
                            pady=5)
 
@@ -157,7 +155,7 @@ class App(ttk.Frame):
         self.txt_out = tk.Text(window, state='disabled',
                                bg='#414141', fg='#A6A6A6',  # equilux
                                width=36, height=19)
-        self.txt_out.config(font=(FONT,20))
+        self.txt_out.config(font=(FONT, 20))
         self.txt_out.grid(column=2, row=1, columnspan=3, rowspan=1,
                           sticky='wens', padx=5, pady=5)
 
@@ -320,7 +318,7 @@ class App(ttk.Frame):
 
         for g, fp, y in reversed(grades):
             if y > 0.5:
-                self.console('Grade is %s (%.1f)\n' % (g, y))
+                self.console('Grade is %s (%.1f)' % (g, y))
                 for topic, _, cnt in self.count_pathologies():
                     self.console('\n - %s: %d' % (topic, cnt), True)
                 self.console('\n\nFP: %s' % fp, True)
@@ -417,7 +415,6 @@ class App(ttk.Frame):
 
     def image_panel(self):
         panel = tk.Label(self.master, image=self.image, bg='black')
-        panel.place(x=0, y=0)
         panel.bind('<ButtonPress-1>', self.image_click)
         panel.bind('<MouseWheel>', self.wheel)
         return panel
@@ -436,7 +433,6 @@ class App(ttk.Frame):
             return
         self.txt_out.config(font=(FONT, int(self.scale * 5)))
         self.show_image()
-
 
     def key_pressed(self, event):
         print("key pressed:", event)
