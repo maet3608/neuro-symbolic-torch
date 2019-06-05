@@ -180,6 +180,8 @@ class App(ttk.Frame):
             self.txt_out.delete('1.0', tk.END)
             self.txt_out.insert('1.0', text)
         self.txt_out.configure(state='disabled')
+        self.txt_out.update()
+
 
     def cmdline(self, text):
         """Write text to comand line box"""
@@ -189,6 +191,29 @@ class App(ttk.Frame):
     def contains(self, *words):
         """Returns true if any of the words is in the recognized text"""
         return any(w for w in words if w in app.ent_cmnd.get() + ' ')
+
+    def which_action(self):
+        """Find action in text and return normalized form"""
+        c = self.contains
+        if c('hello', 'test '):
+            return 'hello'
+        if c('next', 'forward'):
+            return 'next'
+        if c('previous', 'prev' 'back'):
+            return 'prev'
+        if c('count', 'how many'):
+            return 'count'
+        if c('show ', 'mark ', 'highlight', 'segment', 'where', 'display'):
+            return 'show'
+        if c('clear', 'delete', 'remove'):
+            return 'clear'
+        if c('grade', 'severity', 'level'):
+            return 'grade'
+        if c('explain', 'what', 'describe'):
+            return 'explain'
+        if c('end', 'quit', 'finish'):
+            return 'quit'
+        return None
 
     def which_topic(self):
         """Find topic/obj/pathology in text return normalized form"""
@@ -211,28 +236,7 @@ class App(ttk.Frame):
             return 'image', None
         if c('program', 'application', 'demo'):
             return 'program', None
-        return 'fundus', 'fu'
-
-    def which_action(self):
-        """Find action in text and return normalized form"""
-        c = self.contains
-        if c('next', 'forward'):
-            return 'next'
-        if c('previous', 'prev' 'back'):
-            return 'prev'
-        if c('count', 'how many'):
-            return 'count'
-        if c('show', 'mark', 'highlight', 'segment', 'where'):
-            return 'show'
-        if c('clear', 'delete', 'remove'):
-            return 'clear'
-        if c('grade', 'severity', 'level'):
-            return 'grade'
-        if c('explain', 'what', 'describe'):
-            return 'explain'
-        if c('end', 'quit', 'finish'):
-            return 'quit'
-        return 'show'
+        return None, None
 
     def which_location(self):
         """Find location in text and return normalized form"""
@@ -244,6 +248,10 @@ class App(ttk.Frame):
         return None, None
 
     def action_count(self, topic, patho, loc, hem):
+        if patho is None:
+            say('Count what?')
+            self.console('Do not know what to count!')
+            return
         if loc:
             fp = 'cnt_{0}(hem_{1}(seg_{0}(x),seg_fo(x)))'.format(patho, hem)
         else:
@@ -261,6 +269,10 @@ class App(ttk.Frame):
         self.console('\n\nFP: ' + fp, True)
 
     def action_show(self, topic, patho, loc, hem):
+        if patho is None:
+            say('Show what?')
+            self.console('Do not know what to show!')
+            return
         if loc:
             fp = 'hem_{1}(seg_{0}(x),seg_fo(x))'.format(patho, hem)
         else:
@@ -345,6 +357,8 @@ class App(ttk.Frame):
 
     def execute(self):
         """Execute action given in command field"""
+        self.console("thinking hard..."); time.sleep(0.1)
+
         topic, patho = self.which_topic()
         loc, hem = self.which_location()
         action = self.which_action()
@@ -352,6 +366,9 @@ class App(ttk.Frame):
         if action == 'quit' and topic == 'program':
             say("As you wish my master")
             self.master.destroy()
+        elif action == 'hello':
+            say("What is your wish my master")
+            self.console("What is your wish?")
         elif action == 'next' and topic == 'image':
             say("Okay next image")
             self.next_img()
@@ -373,8 +390,8 @@ class App(ttk.Frame):
         elif action == 'explain':
             self.action_explain()
         else:
-            self.console('Unknown command!')
-            say(choice(['What', 'Hu', 'Pardon', 'I do not understand']))
+            self.console("I don't understand!")
+            say(choice(['What?', 'Hu?', 'Pardon', "I don't understand"]))
 
     def listen_mic(self):
         thread = Thread(target=speech2text, args=(self,))
