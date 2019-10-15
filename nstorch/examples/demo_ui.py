@@ -190,7 +190,8 @@ class App(ttk.Frame):
 
     def contains(self, *words):
         """Returns true if any of the words is in the recognized text"""
-        return any(w for w in words if w in app.ent_cmnd.get() + ' ')
+        text = app.ent_cmnd.get().lower() + ' '
+        return any(w for w in words if w in text)
 
     def which_action(self):
         """Find action in text and return normalized form"""
