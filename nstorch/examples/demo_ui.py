@@ -270,14 +270,17 @@ class App(ttk.Frame):
         self.console('\n\nFP: ' + fp, True)
 
     def action_show(self, topic, patho, loc, hem):
-        if patho is None:
+        if loc and patho:
+            fp = 'hem_{1}(seg_{0}(x),seg_fo(x))'.format(patho, hem)
+        elif loc:
+            topic = 'fundus'
+            fp = 'hem_{}(seg_fu(x),seg_od(x))'.format(hem)
+        elif patho:
+            fp = 'seg_{0}(x)'.format(patho)
+        else:
             say('Show what?')
             self.console('Do not know what to show!')
             return
-        if loc:
-            fp = 'hem_{1}(seg_{0}(x),seg_fo(x))'.format(patho, hem)
-        else:
-            fp = 'seg_{0}(x)'.format(patho)
         mask = predict_one(self.model, fp, self.imgarr)
         self.load_image(overlay=mask)
         self.show_image(load=False)
