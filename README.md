@@ -1,3 +1,3 @@
 # nstorch
 
-Neuro-symbolic deep learning framework based on Pytorch
+Neuro-symbolic deep learning framework based on Pytorch.
